@@ -25,7 +25,9 @@
 <fieldset class="cbi-section" id="_log_fieldset">
 	<div style="margin: 10px 10px 0;">
 		<input class="cbi-button cbi-button-neutral" type="button" onclick="scroll_log('top')" value="<%:Scroll to top%>">
-		<input class="cbi-button cbi-button-neutral" type="button" onclick="scroll_log('bottom')" value="<%:Scroll to bottom%>">
 	</div>
 	<textarea id="log_textarea" class="cbi-input-textarea" style="width: calc(100% - 20px); height: 600px; margin: 10px;" data-update="change" rows="5" wrap="off" readonly="readonly"></textarea>
+	<div style="margin: 0 10px 10px;">
+		<input class="cbi-button cbi-button-neutral" type="button" onclick="scroll_log('bottom')" value="<%:Scroll to bottom%>">
+	</div>
 </fieldset>
