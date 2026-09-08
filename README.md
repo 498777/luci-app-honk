@@ -3,16 +3,17 @@
 > **License: AGPL-3.0-only**（[LICENSE](./LICENSE)）。fork 自
 > [QiuSimons/luci-app-honk](https://github.com/QiuSimons/luci-app-honk)（上游未声明许可证）。
 
-OpenWrt 上 [honk](https://github.com/daeuniverse/honk)（eBPF 透明代理引擎，dae 兼容）的 LuCI 界面与二进制包。
-honk 核心为预编译静态 musl 二进制，从上游 Release 按架构下载，本仓库不做本地编译。
+OpenWrt 上 [honk](https://github.com/daeuniverse/honk)（eBPF 透明代理引擎，dae 兼容）的自建打包仓库：
 
-相对上游的三处调整：
+- 二进制：`honk-core` 为上游预编译的静态 musl 二进制，从 Release 按架构下载，本仓库不做本地编译；
+- LuCI：模块化 luasrc 界面，菜单显示名统一 **HONK**；
+- init：新增 `/var/log/honk/honk.log` 3 代轮转，不劫持 `/tmp/resolv.conf`。
 
-- **只出 apk**（OpenWrt 25.x 的 apk 体系，不再出 ipk）；
-- **不依赖 `vmlinux-btf`**：从 `honk/Makefile` 移除条件依赖与 choice，固定使用内核自带 BTF；
-- **init 脚本**：新增 `/var/log/honk/honk.log` 3 代轮转，去掉 `/tmp/resolv.conf` 劫持。
+相对上游的调整：
 
----
+- **只出 apk**（OpenWrt 25.x apk 体系）；
+- **不依赖 `vmlinux-btf`**：移除条件依赖与 choice，固定使用内核自带 BTF；
+- **启动脚本**：新增日志轮转、去掉 resolv.conf 劫持（上游从不创建日志文件）。
 
 ## 一键安装
 
@@ -20,35 +21,50 @@ honk 核心为预编译静态 musl 二进制，从上游 Release 按架构下载
 curl -fsSL "https://raw.githubusercontent.com/498777/luci-app-honk/main/Auto_Install_Script.sh" | sh -s luci-app-honk
 ```
 
-- 检测到非 apk 体系直接退出；默认安装 `honk` + `luci-app-honk` + 中文语言包；
-- 若包内仍声明 `vmlinux-btf`（如指向上游的包），会自动拆包、从 `.PKGINFO` 剔除该依赖后重打包安装；
-- 常用参数：`--repo someone/luci-app-honk`（换仓库）、`sh -s honk`（只装主程序）、`--keep-dep`（不去依赖，原样安装）。
+- 默认装全套：`honk` + `luci-app-honk` + 中文语言包；
+- 只装主程序、不带 LuCI：`sh -s honk`；
+- 脚本行为：非 apk 体系直接退出；未发现内核 BTF 时给出提示；若包内仍声明
+  `vmlinux-btf` 会自动拆包剔除后安装；装完自动刷新 LuCI 缓存；
+- 其它参数（`--repo` 换仓库、`--keep-dep` 原样安装）见脚本头部注释。
 
-启用服务：
+## LuCI 界面（模块化）
+
+安装后 **服务 → HONK** 下五个页签，配置拆分、每页带 CodeMirror 编辑器与 Reload 按钮：
+
+| 页签 | 编辑对象 |
+| --- | --- |
+| Global Settings | uci（启用/日志轮转）+ `/etc/honk/config.dae` |
+| DNS Settings | `/etc/honk/config.d/dns.dae` |
+| Node Settings | `/etc/honk/config.d/node.dae`（节点/订阅/分组） |
+| Routing Settings | `/etc/honk/config.d/route.dae` |
+| Logs | `/var/log/honk/honk.log`（实时 + 清空） |
+
+默认 `node.dae` 是占位模板：**先在 Node 页签替换为真实节点/订阅再启用**，否则
+honk 启动校验失败。
+
+## 安装与启用
 
 ```sh
+apk add honk luci-app-honk luci-i18n-honk-zh-cn
+
 uci set honk.config.enabled=1 && uci commit honk
 /etc/init.d/honk start
 ```
 
-LuCI 入口：**服务 → HONK**。首次使用前先把 `/etc/honk/config.d/node.dae` 的示例节点/订阅替换为实际配置。
+## 前提与平台说明
 
----
-
-## 前提：BTF
-
-honk 是 eBPF CO-RE 程序，加载必须有 BTF。本仓库采用内核自带 BTF（`/sys/kernel/btf/vmlinux`，
-需内核开启 `CONFIG_DEBUG_INFO_BTF`），因此：
-
-- 包内**无 `depend = vmlinux-btf`**，`apk add` 不会拉入 BTF 包；CI 有 Assert 步骤兜底；
-- 代价：内核未开 `CONFIG_DEBUG_INFO_BTF` 时 honk 可安装但无法启动。
-  官方 24.10+ 的 x86_64 / armsr 默认带 BTF；自编译固件需自行开启。
+- **BTF**：honk 是 eBPF CO-RE 程序，内核需开启 `CONFIG_DEBUG_INFO_BTF`（官方 24.10+ 的
+  x86_64 / armsr 默认开启）。未开启时 honk 可安装但无法启动。CI 有 Assert 步骤保证
+  产物不含 `vmlinux-btf` 依赖。
+- **架构**：honk 只提供 x86_64 与 aarch64 的预编译静态二进制，包通过
+  `@(x86_64||aarch64)` 限制架构。
 
 ## 编译与发布
 
-推送 `main`，或在 **Actions → Build apk → Run workflow** 手动触发（SDK 默认 `openwrt-25.12`，
-`packages`/`sdk` 可输入覆盖；默认编 `honk luci-app-honk`，中文包由 luci.mk 自动带出）。
-Release 自动生成 `honk_<version>` 并附 apk。源码树编译：
+推送 `main`，或在 **Actions → Build apk → Run workflow** 手动触发（SDK 默认
+`openwrt-25.12`，`packages`/`sdk` 可输入覆盖）。Release 生成 `honk_<version>`。
+每次发布前会自动清空该 tag 的旧附件并对 noarch 包（luci / 语言包）去重。
+源码树编译：
 
 ```sh
 git clone https://github.com/498777/luci-app-honk package/honk
@@ -57,11 +73,9 @@ make menuconfig   # Network -> Web Servers/Proxies -> luci-app-honk
 make package/honk/compile V=s
 ```
 
-产物在 `bin/packages/<arch>/`。honk 只提供 x86_64 / aarch64 的预编译二进制。
+产物在 `bin/packages/<arch>/`。中文语言包由 luci.mk 自动带出。
 
----
-
-## 目录与配置
+## 目录
 
 ```
 Auto_Install_Script.sh             一键安装（apk）
@@ -71,16 +85,14 @@ scripts/update_honk_version.sh     上游版本/校验和同步
 .github/workflows/                 build-apk（编译发布）/ update-honk（每日同步上游）
 ```
 
-配置：`/etc/honk/config.dae`（含 `include config.d/*.dae`），拆分文件
-`/etc/honk/config.d/{dns,node,route}.dae`。日志：`/var/log/honk/honk.log`
-（init 每次启动轮转，保留 3 代；LuCI Logs 页读取该文件）。
+日志：`/var/log/honk/honk.log`（init 每次启动轮转，保留 3 代）。
 
 ## 许可证
 
-采用 **AGPL-3.0-only**，与 `honk/Makefile` 的 `PKG_LICENSE` 一致。上游：honk-core 为 GPL-3.0
-文本（dae 系源 AGPL-3.0），LuCI 部分上游未声明许可证。GPLv3 代码可并入 AGPLv3 作品，故整体
-AGPL-3.0 无兼容性问题。若改用 GPL-3.0：替换根目录 `LICENSE`，并把 `honk/Makefile` 的
-`PKG_LICENSE` 一并改为 `GPL-3.0-only`（两处需同步）。
+**AGPL-3.0-only**，与 `honk/Makefile` 的 `PKG_LICENSE` 一致。上游：honk-core 为
+GPL-3.0 文本（dae 系源 AGPL-3.0）；LuCI 部分 fork 自 QiuSimons（未声明许可证）。
+GPLv3 代码可并入 AGPLv3 作品，故整体 AGPL-3.0 无兼容性问题。若改用 GPL-3.0：
+替换根目录 `LICENSE`，并把 `honk/Makefile` 的 `PKG_LICENSE` 一并改为 `GPL-3.0-only`。
 
 > fork 源无许可证，严格讲代码默认保留所有权利；个人/自用通常不受影响，长期公开发布建议
 > 请求上游补充 LICENSE。
