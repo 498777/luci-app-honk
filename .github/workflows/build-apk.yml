@@ -78,29 +78,13 @@ jobs:
           NO_SHFMT_CHECK: true
           V: s
 
-      - name: Rename core packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          shopt -s nullglob
-          for f in dist/*.apk; do
-            base=$(basename "$f")
-            case "$base" in
-              honk-*) new="${base%.apk}-${{ matrix.short }}.apk" ;;
-              *)          new="$base" ;;
-            esac
-            cp "$f" "dist/$new"
-          done
-          ls -1 dist
-
       - name: Assert no vmlinux-btf dependency
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
           found=0
-          for f in dist/*.apk; do
+          for f in bin/packages/${{ matrix.arch }}/packages_ci/*.apk; do
             deps=$(gzip -dc "$f" | tar -xO .PKGINFO 2>/dev/null | grep '^depend = ' || true)
             if echo "$deps" | grep -q 'vmlinux-btf'; then
               echo "::error file=$f::仍然依赖 vmlinux-btf"
@@ -117,7 +101,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: apk-${{ matrix.short }}
-          path: dist/*.apk
+          path: bin/packages/${{ matrix.arch }}/packages_ci/*.apk
           if-no-files-found: error
           retention-days: 7
 
@@ -133,7 +117,34 @@ jobs:
         with:
           pattern: apk-*
           path: release-dist
-          merge-multiple: true
+
+      - name: Assemble release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p rel
+          for d in release-dist/*/; do
+            label="${d#release-dist/}"
+            label="${label%/}"
+            label="${label#apk-}"
+            for f in "$d"*.apk; do
+              [ -e "$f" ] || continue
+              name=$(basename "$f")
+              dup=""
+              for d2 in release-dist/*/; do
+                l2="${d2#release-dist/}"; l2="${l2%/}"; l2="${l2#apk-}"
+                [ "$l2" = "$label" ] && continue
+                [ -f "${d2}${name}" ] && { dup=1; break; }
+              done
+              if [ -n "$dup" ]; then
+                [ "$label" = "x86_64v3" ] && cp "$f" "rel/$name"
+              else
+                cp "$f" "rel/${name%.apk}-${label}.apk"
+              fi
+            done
+          done
+          echo "=== release assets ==="
+          ls -1 rel
 
       - name: Replace old release assets
         shell: bash
@@ -157,7 +168,7 @@ jobs:
         with:
           tag_name: ${{ needs.prepare.outputs.release_tag }}
           name: ${{ needs.prepare.outputs.release_name }}
-          files: release-dist/*
+          files: rel/*
           generate_release_notes: true
           token: ${{ secrets.GITHUB_TOKEN }}
           target_commitish: ${{ github.sha }}
