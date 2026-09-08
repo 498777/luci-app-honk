@@ -24,7 +24,7 @@ curl -fsSL "https://raw.githubusercontent.com/498777/luci-app-honk/main/Auto_Ins
 - 只装主程序、不带 LuCI：`sh -s honk`；
 - 脚本行为：非 apk 体系直接退出；未发现内核 BTF 时给出提示；若包内仍声明
   `vmlinux-btf` 会自动拆包剔除后安装；装完自动刷新 LuCI 缓存；
-- 其它参数（`--repo` 换仓库、`--keep-dep` 原样安装）见脚本头部注释。
+- 其它参数（`--repo` 换仓库、`--keep-dep` 原样安装）见脚本帮助（`-h`）。
 
 ## LuCI 界面（模块化）
 
