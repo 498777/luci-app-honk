@@ -161,14 +161,18 @@ jobs:
           fi
 
       - name: Create or update GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.prepare.outputs.release_tag }}
-          name: ${{ needs.prepare.outputs.release_name }}
-          files: rel/*
-          generate_release_notes: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-          target_commitish: ${{ github.sha }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.prepare.outputs.release_tag }}"
+          title="${{ needs.prepare.outputs.release_name }}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" rel/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$tag" rel/* --repo "$GITHUB_REPOSITORY" --title "$title" --notes "Automated build of ${title}"
+          fi
 
       - name: Delete old releases
         uses: ophub/delete-releases-workflows@main
