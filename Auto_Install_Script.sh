@@ -239,23 +239,24 @@ install_url() {
 # --------------------------------------------------------- 计算待装清单
 : > "$PLANFILE"; : > "$DECIDED"
 
+add_pkg_nodup() {
+    plan_has "$1" && return 0
+    add_pkg "$1"
+}
+
 if [ -n "$PKGS" ]; then
     want_luci=0
     for p in $PKGS; do
         [ "$p" = "luci-app-honk" ] && want_luci=1
-        u=$(select_pkg "$p") || u=""
-        [ -n "$u" ] || { echo "✗ 未找到 $p 的 apk，跳过"; continue; }
-        echo "$u|$p" >> "$PLANFILE"
     done
     if [ "$want_luci" -eq 1 ]; then
-        if ! plan_has honk; then
-            u=$(select_pkg honk) || u=""
-            [ -n "$u" ] && echo "$u|honk" >> "$PLANFILE"
-        fi
-        if ! plan_has luci-app-honk; then
-            u=$(select_pkg luci-app-honk) || u=""
-            [ -n "$u" ] && echo "$u|luci-app-honk" >> "$PLANFILE"
-        fi
+        add_pkg_nodup honk
+    fi
+    for p in $PKGS; do
+        add_pkg_nodup "$p"
+    done
+    if [ "$want_luci" -eq 1 ]; then
+        add_pkg_nodup luci-app-honk
         add_i18n
     fi
 else
