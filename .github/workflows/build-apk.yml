@@ -78,32 +78,13 @@ jobs:
           NO_SHFMT_CHECK: true
           V: s
 
-      - name: Rename artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          short="${{ matrix.short }}"
-          shopt -s nullglob
-          for f in bin/packages/${{ matrix.arch }}/packages_ci/*.apk; do
-            base="$(basename "$f")"
-            name="${base%.apk}"
-            if [[ "$name" == *x86_64* || "$name" == *aarch64* ]]; then
-              new="$base"
-            else
-              new="${name}-${short}.apk"
-            fi
-            cp "$f" "dist/${new}"
-          done
-          ls -lah dist
-
       - name: Assert no vmlinux-btf dependency
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
           found=0
-          for f in dist/*.apk; do
+          for f in bin/packages/${{ matrix.arch }}/packages_ci/*.apk; do
             deps=$(gzip -dc "$f" | tar -xO .PKGINFO 2>/dev/null | grep '^depend = ' || true)
             if echo "$deps" | grep -q 'vmlinux-btf'; then
               echo "::error file=$f::仍然依赖 vmlinux-btf"
@@ -120,7 +101,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.short }}
-          path: dist/*.apk
+          path: bin/packages/${{ matrix.arch }}/packages_ci/*.apk
           if-no-files-found: error
           retention-days: 7
 
@@ -136,31 +117,6 @@ jobs:
         with:
           path: release-dist
           merge-multiple: true
-
-      - name: Deduplicate noarch packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd release-dist
-          SUFFIXES="x86_64 aarch64"
-          for s1 in $SUFFIXES; do
-            for f in *-${s1}.apk; do
-              [ -e "$f" ] || continue
-              key="${f%-${s1}.apk}"
-              for s2 in $SUFFIXES; do
-                [ "$s1" = "$s2" ] && continue
-                twin="${key}-${s2}.apk"
-                if [ -f "$twin" ]; then
-                  mv -f "$f" "${key}.apk"
-                  rm -f "$twin"
-                  echo "dedupe: ${key}.apk"
-                  break
-                fi
-              done
-            done
-          done
-          echo "=== release files after dedupe ==="
-          ls -1
 
       - name: Replace old release assets
         shell: bash
