@@ -1,19 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Update honk's package version and per-arch release hashes from the latest
-# daeuniverse/honk release.
-#
-# Primary source: GitHub API /releases/latest.
-# Fallback: git ls-remote --tags + sort -V (works when the API is rate-limited).
-# Hashes are computed from the release tarballs with sha256sum.
-#
-# Offline testing hooks:
-#   HONK_RELEASE_JSON   - feed a fake GitHub API response
-#   HONK_RELEASE_TAG    - force a specific raw tag
-#   HONK_HASH_X86_64    - force the x86_64 tarball sha256
-#   HONK_HASH_AARCH64   - force the aarch64 tarball sha256
-
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MAKEFILE="$REPO_DIR/honk/Makefile"
 UPSTREAM_REPO="daeuniverse/honk"
@@ -77,7 +64,6 @@ resolve_hash() {
     local tag="$4"
     local asset="honk-core-${tag}-${target}${suffix}.tar.gz"
 
-    # Offline testing hook: force a hash without downloading.
     if [ -n "${!var_name:-}" ]; then
         printf '%s\n' "${!var_name}"
         return 0

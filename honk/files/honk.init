@@ -8,8 +8,6 @@ extra_command "hot_reload" "Hot-reload service"
 
 CONF="honk"
 PROG="/usr/bin/honk-core"
-# honk-core hardcodes dae-compatible datapath names (dae0/dae0peer + daens);
-# these are the real interface/netns names, not leftover dae config.
 HONK_HOST_IFACE="dae0"
 HONK_PEER_IFACE="dae0peer"
 HONK_NETNS_NAME="daens"
@@ -31,8 +29,6 @@ cleanup_netns() {
     ip link del "$HONK_PEER_IFACE" 2>/dev/null || true
 }
 
-# 保留最近 3 份历史日志，再开一个空文件供 LuCI 日志页读取
-# （LuCI: admin/services/honk/get_log -> tail -n 1000 /var/log/honk/honk.log）
 rotate_log() {
     mkdir -p "$LOG_DIR"
     chmod 755 "$LOG_DIR"

@@ -1,9 +1,5 @@
 name: Build apk
 
-# 只产出 OpenWrt apk 包（25.x SDK 起默认 apk 体系），不再出 ipk。
-# 与上游 QiuSimons/luci-app-honk 的差异：honk/Makefile 已移除
-# `+HONK_USE_VMLINUX_BTF:vmlinux-btf`，编出来的包不会依赖 vmlinux-btf。
-
 on:
   workflow_dispatch:
     inputs:
@@ -77,12 +73,8 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}-${{ needs.prepare.outputs.sdk }}
           FEEDNAME: packages_ci
-          # luci-i18n-honk-zh-cn 在部分 SDK 的 luci feeds 里不存在，会导致
-          # `make package/<pkg>/download` 报 No rule to make target（exit 2）。
-          # 默认不带它，需要时在 workflow_dispatch 的 packages 输入框里补上。
           PACKAGES: ${{ needs.prepare.outputs.packages }}
           NO_REFRESH_CHECK: true
-          # 关闭 action 自带的 shfmt 格式门禁（init 脚本为手工排版）
           NO_SHFMT_CHECK: true
           V: s
 
@@ -96,7 +88,6 @@ jobs:
           for f in bin/packages/${{ matrix.arch }}/packages_ci/*.apk; do
             base="$(basename "$f")"
             name="${base%.apk}"
-            # 名字里已带架构的保持原样；noarch 包补上架构后缀，避免两个 job 的产物重名
             if [[ "$name" == *x86_64* || "$name" == *aarch64* ]]; then
               new="$base"
             else
@@ -151,11 +142,6 @@ jobs:
         run: |
           set -euo pipefail
           cd release-dist
-          # noarch 包（luci-app-honk / luci-i18n-*）在 rename 阶段被两个 job 各自
-          # 追加了 -x86_64 / -aarch64 后缀，内容完全相同。仅当同一 basename 去掉
-          # 后缀后「两种后缀的包都出现」才判定为重复：合并成单个原始名文件。
-          # 注意：honk 核心包的文件名以 -x86_64 / -aarch64_generic.apk 结尾且只有
-          # 一种后缀，不会被误判（不会进入成对去重）。
           SUFFIXES="x86_64 aarch64"
           for s1 in $SUFFIXES; do
             for f in *-${s1}.apk; do
@@ -183,8 +169,6 @@ jobs:
         run: |
           set -euo pipefail
           tag="${{ needs.prepare.outputs.release_tag }}"
-          # 每次发布（含同 tag 重跑）都先把旧附件删掉，只保留本次产物：
-          # 语言包等随版本变化的文件不会在 Release 里越积越多。
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             assets=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name')
             if [ -n "$assets" ]; then

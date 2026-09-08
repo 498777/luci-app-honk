@@ -1,9 +1,5 @@
 name: Update honk version
 
-# 每天拉一次上游 daeuniverse/honk 的最新 Release，回写 honk/Makefile 的
-# PKG_VERSION / HONK_RELEASE_TAG / 两个架构的 sha256，然后触发编译。
-# 该脚本只改版本与哈希行，不会动 DEPENDS，去掉的 vmlinux-btf 依赖不会被改回来。
-
 on:
   schedule:
     - cron: '17 0 * * *'
