@@ -57,7 +57,7 @@ uci commit honk
 /etc/init.d/honk start
 ```
 
-LuCI 入口在 **服务 → honk**。首次使用前需将 `/etc/honk/config.d/node.dae` 中的示例节点/订阅替换为实际配置。
+LuCI 入口在 **服务 → HONK**。首次使用前需将 `/etc/honk/config.d/node.dae` 中的示例节点/订阅替换为实际配置。
 
 ---
 
@@ -93,10 +93,10 @@ honk 是 eBPF CO-RE 程序，加载时**必须有 BTF 信息**，BTF 只有两�
    ```
    honk-0.0.1_beta74-r2-x86_64.apk
    honk-0.0.1_beta74-r2-aarch64_generic.apk
-   luci-app-honk-1.0.0-r3-x86_64.apk
-   luci-app-honk-1.0.0-r3-aarch64.apk
-   luci-i18n-honk-zh-cn-1.0.0-r3-x86_64.apk
-   luci-i18n-honk-zh-cn-1.0.0-r3-aarch64.apk
+   luci-app-honk-1.0.0-r4-x86_64.apk
+   luci-app-honk-1.0.0-r4-aarch64.apk
+   luci-i18n-honk-zh-cn-1.0.0-r4-x86_64.apk
+   luci-i18n-honk-zh-cn-1.0.0-r4-aarch64.apk
    ```
 
    随后即可使用第一节的安装命令。

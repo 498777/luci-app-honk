@@ -1,7 +1,7 @@
 local honk = require "luci.model.honk_tools"
 local m, s
 
-m = Map("honk", translate("Node Settings"), translate("Configure nodes and groups for honk."))
+m = Map("honk", translate("Node Settings"), translate("Configure nodes and groups for HONK."))
 
 local node_file = "/etc/honk/config.d/node.dae"
 

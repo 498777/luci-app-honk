@@ -1,7 +1,7 @@
 local honk = require "luci.model.honk_tools"
 local m, s, o
 
-m = Map("honk", translate("Global Settings"), translate("Configure global settings for honk."))
+m = Map("honk", translate("Global Settings"), translate("Configure global settings for HONK."))
 
 local config_file = "/etc/honk/config.dae"
 

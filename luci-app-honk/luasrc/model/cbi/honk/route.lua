@@ -1,7 +1,7 @@
 local honk = require "luci.model.honk_tools"
 local m, s
 
-m = Map("honk", translate("Routing Settings"), translate("Configure routing rules for honk."))
+m = Map("honk", translate("Routing Settings"), translate("Configure routing rules for HONK."))
 
 local route_file = "/etc/honk/config.d/route.dae"
 

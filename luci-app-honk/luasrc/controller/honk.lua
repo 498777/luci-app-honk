@@ -10,7 +10,7 @@ function index()
 	end
 
 	-- Main page
-	local page = entry({"admin", "services", "honk"}, firstchild(), _("honk"), -1)
+	local page = entry({"admin", "services", "honk"}, firstchild(), _("HONK"), -1)
 	page.dependent = true
 	page.acl_depends = { "luci-app-honk" }
 
