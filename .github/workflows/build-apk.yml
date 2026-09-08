@@ -78,13 +78,29 @@ jobs:
           NO_SHFMT_CHECK: true
           V: s
 
+      - name: Rename core packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          shopt -s nullglob
+          for f in dist/*.apk; do
+            base=$(basename "$f")
+            case "$base" in
+              honk-*) new="${base%.apk}-${{ matrix.short }}.apk" ;;
+              *)          new="$base" ;;
+            esac
+            cp "$f" "dist/$new"
+          done
+          ls -1 dist
+
       - name: Assert no vmlinux-btf dependency
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
           found=0
-          for f in bin/packages/${{ matrix.arch }}/packages_ci/*.apk; do
+          for f in dist/*.apk; do
             deps=$(gzip -dc "$f" | tar -xO .PKGINFO 2>/dev/null | grep '^depend = ' || true)
             if echo "$deps" | grep -q 'vmlinux-btf'; then
               echo "::error file=$f::仍然依赖 vmlinux-btf"
@@ -100,8 +116,8 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.short }}
-          path: bin/packages/${{ matrix.arch }}/packages_ci/*.apk
+          name: apk-${{ matrix.short }}
+          path: dist/*.apk
           if-no-files-found: error
           retention-days: 7
 
@@ -112,9 +128,10 @@ jobs:
       - prepare
       - build
     steps:
-      - name: Download all build artifacts
+      - name: Download apk artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: apk-*
           path: release-dist
           merge-multiple: true
 
