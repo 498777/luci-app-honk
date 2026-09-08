@@ -36,7 +36,7 @@ curl -fsSL "https://raw.githubusercontent.com/498777/luci-app-honk/main/Auto_Ins
 | DNS Settings | `/etc/honk/config.d/dns.dae` |
 | Node Settings | `/etc/honk/config.d/node.dae`（节点/订阅/分组） |
 | Routing Settings | `/etc/honk/config.d/route.dae` |
-| Logs | `/var/log/honk/honk.log`（实时 + 清空） |
+| Logs | `/var/log/honk/honk.log`（实时日志） |
 
 默认 `node.dae` 是占位模板：**先在 Node 页签替换为真实节点/订阅再启用**，否则
 honk 启动校验失败。
@@ -62,7 +62,7 @@ uci set honk.config.enabled=1 && uci commit honk
 
 推送 `main`，或在 **Actions → Build apk → Run workflow** 手动触发（SDK 默认
 `openwrt-25.12`，`packages`/`sdk` 可输入覆盖）。Release 生成 `honk_<version>`。
-每次发布前会自动清空该 tag 的旧附件并对 noarch 包（luci / 语言包）去重。
+每次发布前会自动清空该 tag 的旧附件。
 源码树编译：
 
 ```sh
