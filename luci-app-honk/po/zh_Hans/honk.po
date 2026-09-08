@@ -43,14 +43,14 @@ msgstr "节点配置"
 msgid "Route Configuration"
 msgstr "路由配置"
 
-msgid "Configure global settings for honk."
-msgstr "调整 honk 的全局设置。"
+msgid "Configure global settings for HONK."
+msgstr "调整 HONK 的全局设置。"
 
-msgid "Configure DNS settings for honk."
-msgstr "调整 honk 的 DNS 设置。"
+msgid "Configure DNS settings for HONK."
+msgstr "调整 HONK 的 DNS 设置。"
 
-msgid "Configure nodes and groups for honk."
-msgstr "调整 honk 的节点与分组设置。"
+msgid "Configure nodes and groups for HONK."
+msgstr "调整 HONK 的节点与分组设置。"
 
 msgid "Configure routing rules for HONK."
 msgstr "调整 HONK 的路由规则。"
