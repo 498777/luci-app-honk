@@ -89,9 +89,7 @@ scripts/update_honk_version.sh     上游版本/校验和同步
 ## 许可证
 
 **AGPL-3.0-only**，与 `honk/Makefile` 的 `PKG_LICENSE` 一致。上游：honk-core 为
-GPL-3.0 文本（dae 系源 AGPL-3.0）；LuCI 部分 fork 自 QiuSimons（未声明许可证）。
-GPLv3 代码可并入 AGPLv3 作品，故整体 AGPL-3.0 无兼容性问题。若改用 GPL-3.0：
-替换根目录 `LICENSE`，并把 `honk/Makefile` 的 `PKG_LICENSE` 一并改为 `GPL-3.0-only`。
-
-> fork 源无许可证，严格讲代码默认保留所有权利；个人/自用通常不受影响，长期公开发布建议
-> 请求上游补充 LICENSE。
+GPL-3.0 文本（dae 系源 AGPL-3.0）；LuCI 界面移植自 QiuSimons/luci-app-honk（上游未
+声明许可证，文件头保留版权）。GPLv3 代码可并入 AGPLv3 作品，故整体 AGPL-3.0 无兼容性
+问题。若改用 GPL-3.0：替换根目录 `LICENSE`，并把 `honk/Makefile` 的 `PKG_LICENSE`
+一并改为 `GPL-3.0-only`。
