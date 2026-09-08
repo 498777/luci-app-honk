@@ -103,7 +103,10 @@ honk 是 eBPF CO-RE 程序，加载时**必须有 BTF 信息**，BTF 只有两�
 
 5. （可选）`Update honk version` 工作流每日同步上游版本，有更新时自动提交并触发编译。
 
-> `luci-i18n-honk-zh-cn` 在所用 feeds 中不存在而导致编译报错时，将其从 `.github/workflows/build-apk.yml` 的 `PACKAGES` 中移除即可。
+> 默认只编译 `honk` 与 `luci-app-honk`。需要中文语言包时，在 workflow_dispatch 的
+> `packages` 输入框中加上 `luci-i18n-honk-zh-cn` —— 该包在部分 SDK 的 luci feeds 中
+> 不存在，写入 `PACKAGES` 会导致 `make package/<pkg>/download` 报
+> `No rule to make target` 而中断编译。
 
 ---
 

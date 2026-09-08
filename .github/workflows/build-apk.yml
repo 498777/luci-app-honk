@@ -11,6 +11,10 @@ on:
         description: 'OpenWrt SDK 分支（25.x 起产出 apk）'
         required: false
         default: openwrt-25.12
+      packages:
+        description: '要编译的包，空格分隔'
+        required: false
+        default: 'honk luci-app-honk'
   push:
     branches:
       - main
@@ -30,6 +34,7 @@ jobs:
       release_tag: ${{ steps.meta.outputs.release_tag }}
       release_name: ${{ steps.meta.outputs.release_name }}
       sdk: ${{ steps.meta.outputs.sdk }}
+      packages: ${{ steps.meta.outputs.packages }}
     steps:
       - uses: actions/checkout@v4
 
@@ -40,14 +45,16 @@ jobs:
           pkg_version=$(grep '^PKG_VERSION:=' honk/Makefile | head -n 1 | cut -d= -f2)
           pkg_release=$(grep '^PKG_RELEASE:=' honk/Makefile | head -n 1 | cut -d= -f2)
           sdk="${{ inputs.sdk || 'openwrt-25.12' }}"
+          packages="${{ inputs.packages || 'honk luci-app-honk' }}"
 
           version="${pkg_version}-r${pkg_release}"
           echo "version=${version}"                >> "$GITHUB_OUTPUT"
           echo "release_tag=honk_${version}"       >> "$GITHUB_OUTPUT"
           echo "release_name=honk_${version}"      >> "$GITHUB_OUTPUT"
           echo "sdk=${sdk}"                        >> "$GITHUB_OUTPUT"
+          echo "packages=${packages}"              >> "$GITHUB_OUTPUT"
 
-          echo "Version: ${version} / SDK: ${sdk}"
+          echo "Version: ${version} / SDK: ${sdk} / Packages: ${packages}"
 
   build:
     name: Build ${{ matrix.short }}
@@ -70,9 +77,13 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}-${{ needs.prepare.outputs.sdk }}
           FEEDNAME: packages_ci
-          # 若 luci-i18n-honk-zh-cn 这个包名在你的 feeds 里不存在，去掉它即可
-          PACKAGES: honk luci-app-honk luci-i18n-honk-zh-cn
+          # luci-i18n-honk-zh-cn 在部分 SDK 的 luci feeds 里不存在，会导致
+          # `make package/<pkg>/download` 报 No rule to make target（exit 2）。
+          # 默认不带它，需要时在 workflow_dispatch 的 packages 输入框里补上。
+          PACKAGES: ${{ needs.prepare.outputs.packages }}
           NO_REFRESH_CHECK: true
+          # 关闭 action 自带的 shfmt 格式门禁（init 脚本为手工排版）
+          NO_SHFMT_CHECK: true
           V: s
 
       - name: Rename artifacts
