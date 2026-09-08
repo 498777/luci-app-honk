@@ -176,6 +176,25 @@ jobs:
           echo "=== release files after dedupe ==="
           ls -1
 
+      - name: Replace old release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.prepare.outputs.release_tag }}"
+          # 每次发布（含同 tag 重跑）都先把旧附件删掉，只保留本次产物：
+          # 语言包等随版本变化的文件不会在 Release 里越积越多。
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            assets=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name')
+            if [ -n "$assets" ]; then
+              for a in $assets; do
+                echo "remove old asset: $a"
+                gh release delete-asset "$tag" --repo "$GITHUB_REPOSITORY" --yes "$a"
+              done
+            fi
+          fi
+
       - name: Create or update GitHub release
         uses: softprops/action-gh-release@v2
         with:
