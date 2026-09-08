@@ -146,6 +146,36 @@ jobs:
           path: release-dist
           merge-multiple: true
 
+      - name: Deduplicate noarch packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-dist
+          # noarch 包（luci-app-honk / luci-i18n-*）在 rename 阶段被两个 job 各自
+          # 追加了 -x86_64 / -aarch64 后缀，内容完全相同。仅当同一 basename 去掉
+          # 后缀后「两种后缀的包都出现」才判定为重复：合并成单个原始名文件。
+          # 注意：honk 核心包的文件名以 -x86_64 / -aarch64_generic.apk 结尾且只有
+          # 一种后缀，不会被误判（不会进入成对去重）。
+          SUFFIXES="x86_64 aarch64"
+          for s1 in $SUFFIXES; do
+            for f in *-${s1}.apk; do
+              [ -e "$f" ] || continue
+              key="${f%-${s1}.apk}"
+              for s2 in $SUFFIXES; do
+                [ "$s1" = "$s2" ] && continue
+                twin="${key}-${s2}.apk"
+                if [ -f "$twin" ]; then
+                  mv -f "$f" "${key}.apk"
+                  rm -f "$twin"
+                  echo "dedupe: ${key}.apk"
+                  break
+                fi
+              done
+            done
+          done
+          echo "=== release files after dedupe ==="
+          ls -1
+
       - name: Create or update GitHub release
         uses: softprops/action-gh-release@v2
         with:
