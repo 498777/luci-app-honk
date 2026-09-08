@@ -45,7 +45,8 @@ usage() {
   --repo=<OWNER/REPO>   同上
   --keep-dep            不剔除 vmlinux-btf 依赖，原样安装
   -h, --help            显示本帮助
-  <包名>...             只安装指定包，留空则装 honk + luci-app-honk + 中文语言包
+  <包名>...             指定要装的包，留空则装 honk + luci-app-honk + 中文语言包
+                        （指定 luci-app-honk 时会自动补上 honk 与中文语言包）
 
 示例：
   # 默认装全套
@@ -201,24 +202,46 @@ install_url() {
 }
 
 # --------------------------------------------------------- 计算待装清单
+# 按名字挑一个包加进 PLAN
+add_pkg() {
+    u=$(select_pkg "$1") || u=""
+    if [ -n "$u" ]; then
+        PLAN="$PLAN $u"
+    else
+        echo "⚠ 未找到 $1 的 apk，跳过"
+        return 1
+    fi
+}
+
+# 按优先级挑一个中文语言包加进 PLAN
+add_i18n() {
+    for lang in $LANGS; do
+        u=$(select_pkg "luci-i18n-honk-${lang}") || u=""
+        if [ -n "$u" ]; then PLAN="$PLAN $u"; return 0; fi
+    done
+    echo "⚠ 未找到中文语言包，界面将是英文"
+    return 1
+}
+
 if [ -n "$PKGS" ]; then
     PLAN=""
+    want_luci=0
     for p in $PKGS; do
+        [ "$p" = "luci-app-honk" ] && want_luci=1
         u=$(select_pkg "$p") || u=""
         [ -n "$u" ] || { echo "✗ 未找到 $p 的 apk，跳过"; continue; }
         PLAN="$PLAN $u"
     done
+    # luci-app-honk 依赖 honk，只装界面会让 apk 依赖不满足，这里自动补上
+    if [ "$want_luci" -eq 1 ]; then
+        echo "$PLAN" | grep -q "/honk-" || add_pkg honk
+        add_i18n
+    fi
 else
     PLAN=""
-    for p in honk luci-app-honk; do
-        u=$(select_pkg "$p")
-        [ -n "$u" ] && PLAN="$PLAN $u" || echo "⚠ 未找到 $p 的 apk，跳过"
-    done
-    # 语言包：按优先级挑一个
-    for lang in $LANGS; do
-        u=$(select_pkg "luci-i18n-honk-${lang}")
-        if [ -n "$u" ]; then PLAN="$PLAN $u"; break; fi
-    done
+    add_pkg honk
+    add_pkg luci-app-honk
+    add_i18n
 fi
 
 [ -n "$PLAN" ] || die "没有可安装的包"
