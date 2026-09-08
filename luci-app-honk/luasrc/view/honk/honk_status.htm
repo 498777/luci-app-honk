@@ -1,0 +1,31 @@
+<script type="text/javascript">//<![CDATA[
+	XHR.poll(3, '<%=url("admin/services/honk/status")%>', null,
+		function(x, data)
+		{
+			var tb = document.getElementById('honk_status');
+			if (data && tb)
+			{
+				if (data.running)
+				{
+					if (data.memory) {
+						tb.innerHTML = '<em style="color:green"><b><%:honk%> <%:RUNNING%></b></em> <span style="color:#666; font-size:0.9em;">(<%:Memory Usage%>: ' + data.memory + ')</span>';
+					} else {
+						tb.innerHTML = '<em style="color:green"><b><%:honk%> <%:RUNNING%></b></em>';
+					}
+				}
+				else
+				{
+					tb.innerHTML = '<em style=\"color:red\"><b><%:honk%> <%:NOT RUNNING%></b></em>';
+				}
+			}
+		}
+	);
+//]]></script>
+
+<style>.mar-10 {margin-left: 50px; margin-right: 10px;}</style>
+<fieldset class="cbi-section" data-page-node-id="eMNpz1XGteayXiItysKhjs">
+	<p id="honk_status" data-page-node-id="b4lgtOLx3ilUmnHCVvTHm0">
+		<em data-page-node-id="GXKiUedNAP6n0E0u0lel5U"><b data-page-node-id="rmb6iU64rgLLc04CnWRWjj"><%:Collecting data...%></b></em>
+	</p>
+</fieldset>
+

@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.js text eol=lf
+*.lua text eol=lf
+*.sh text eol=lf
+*.htm text eol=lf
