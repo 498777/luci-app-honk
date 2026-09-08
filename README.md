@@ -4,7 +4,7 @@
 
 OpenWrt 上 [honk](https://github.com/daeuniverse/honk)（eBPF 透明代理引擎，dae 兼容）的自建打包仓库：
 
-- 二进制：`honk-core` 为上游预编译的静态 musl 二进制，从 Release 按架构下载，本仓库不做本地编译；
+- 二进制：`honk-core` 为上游预编译的静态 musl 二进制，从 Release 按架构下载（`update-honk` 每日检查上游新 Release 并自动同步版本/校验和、触发构建）；
 - LuCI：模块化 luasrc 界面，菜单显示名统一 **HONK**；
 - init：新增 `/var/log/honk/honk.log` 3 代轮转，不劫持 `/tmp/resolv.conf`。
 
