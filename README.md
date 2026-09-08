@@ -1,7 +1,6 @@
 # luci-app-honk（自建仓库 · 仅 apk）
 
-> **License: AGPL-3.0-only**（[LICENSE](./LICENSE)）。fork 自
-> [QiuSimons/luci-app-honk](https://github.com/QiuSimons/luci-app-honk)（上游未声明许可证）。
+> **License: AGPL-3.0-only**（[LICENSE](./LICENSE)）。
 
 OpenWrt 上 [honk](https://github.com/daeuniverse/honk)（eBPF 透明代理引擎，dae 兼容）的自建打包仓库：
 
