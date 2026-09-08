@@ -135,7 +135,7 @@ jobs:
                   cp "$f" "rel/${name%.apk}-${label}.apk"
                   ;;
                 *)
-                  [ "$label" = "x86_64v3" ] && cp "$f" "rel/$name"
+                  [ "$label" = "x86_64" ] && cp "$f" "rel/$name"
                   ;;
               esac
             done
