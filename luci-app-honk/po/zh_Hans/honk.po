@@ -61,6 +61,12 @@ msgstr "请正确配置 include 字段以启用拆分配置，或在此处填写
 msgid "Logs"
 msgstr "日志"
 
+msgid "Scroll to bottom"
+msgstr "滚动到底部"
+
+msgid "Scroll to top"
+msgstr "滚动到顶部"
+
 msgid "Memory Usage"
 msgstr "内存占用"
 
