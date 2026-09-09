@@ -9,16 +9,6 @@ PLANFILE="/tmp/honk-plan.$$"
 DECIDED="/tmp/honk-decide.$$"
 PKGS=""
 
-# GitHub 加速前缀（可选）：export GH_PROXY=https://ghfast.top/ 等
-GH_PROXY="${GH_PROXY:-}"
-gurl() {
-    if [ -n "$GH_PROXY" ]; then
-        printf '%s' "${GH_PROXY%/}/$1"
-    else
-        printf '%s' "$1"
-    fi
-}
-
 usage() {
     cat <<'EOF'
 用法：
@@ -29,9 +19,6 @@ usage() {
   --repo=<OWNER/REPO>   同上
   --force               版本相同时也强制重装
   --keep-dep            不剔除 vmlinux-btf 依赖，原样安装
-
-环境变量：
-  export GH_PROXY=https://ghfast.top/   # GitHub 加速前缀（可选），走不了 github.com 时用
   -h, --help            显示本帮助
   <包名>...             指定要装的包，留空则装 honk + luci-app-honk + 中文语言包
                         （指定 luci-app-honk 时会自动补上 honk 与中文语言包）
@@ -86,27 +73,21 @@ fi
 info "查询最新 Release ..."
 
 get_latest_tag() {
-    loc=""
-    for base in "$(gurl "https://github.com/$REPO/releases")" "https://github.com/$REPO/releases"; do
-        page=$(curl -fsSL --max-time 30 "$base" 2>/dev/null) || continue
+    loc=$(curl -fsSI --max-time 20 "https://github.com/$REPO/releases/latest" 2>/dev/null \
+        | tr -d '\r' | sed -n 's#^[Ll]ocation: .*/releases/tag/##p')
+    if [ -z "$loc" ]; then
+        page=$(curl -fsSL --max-time 30 "https://github.com/$REPO/releases" 2>/dev/null)
         loc=$(printf '%s' "$page" | grep -oE '/releases/tag/[^"?]+' | head -1 | sed 's#.*/tag/##')
-        [ -n "$loc" ] && break
-    done
+    fi
     [ -n "$loc" ] || return 1
     printf '%s' "$loc"
 }
 
 list_assets() {
     tag="$1"
-    found=""
-    for base in "$(gurl "https://github.com/$REPO/releases/expanded_assets/$tag")" "https://github.com/$REPO/releases/expanded_assets/$tag"; do
-        page=$(curl -fsSL --max-time 30 "$base" 2>/dev/null) || continue
-        found=$(printf '%s' "$page" | grep -oE "releases/download/$tag/[^\"]+\.apk" | head -1)
-        [ -n "$found" ] && break
-    done
-    [ -n "$found" ] || return 1
-    printf '%s' "$page" | grep -oE "releases/download/$tag/[^\"]+\.apk" | sort -u \
-        | while read -r p; do gurl "https://github.com/$REPO/$p"; done
+    curl -fsSL --max-time 30 "https://github.com/$REPO/releases/expanded_assets/$tag" 2>/dev/null \
+        | grep -oE "href=\"/$REPO/releases/download/$tag/[^\"]+\.apk\"" \
+        | sed "s#^href=\"/#https://github.com/#; s#\"\$##" | sort -u
 }
 
 TAG=$(get_latest_tag) || die "获取 Release 失败，请检查网络或仓库名是否正确"
