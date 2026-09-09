@@ -4,6 +4,7 @@ REPO="${REPO:-498777/luci-app-honk}"
 STRIP_DEPS="vmlinux-btf"
 LANGS="zh-cn zh_Hans zh_cn"
 FORCE=0
+GH_PROXY="${GH_PROXY:-https://ghfast.top}"
 TMPDIR_WORK="${TMPDIR:-/tmp}/honk-install.$$"
 PLANFILE="/tmp/honk-plan.$$"
 DECIDED="/tmp/honk-decide.$$"
@@ -18,6 +19,8 @@ usage() {
   --repo <OWNER/REPO>   指定 Release 所在仓库（也可 export REPO=... 后运行）
   --repo=<OWNER/REPO>   同上
   --force               版本相同时也强制重装
+  --no-proxy            关闭 GitHub 加速，直连下载
+  --gh-proxy [URL]      指定 GitHub 加速前缀（默认 https://ghfast.top；也可 export GH_PROXY=...）
   --keep-dep            不剔除 vmlinux-btf 依赖，原样安装
   -h, --help            显示本帮助
   <包名>...             指定要装的包，留空则装 honk + luci-app-honk + 中文语言包
@@ -35,11 +38,23 @@ die() { echo "✗ $*"; exit 1; }
 info() { echo "→ $*"; }
 ok() { echo "✓ $*"; }
 
+# GitHub 加速前缀（默认 ghfast.top，--no-proxy 或 GH_PROXY= 关闭）
+gurl() {
+    if [ -n "$GH_PROXY" ]; then
+        printf '%s/%s' "${GH_PROXY%/}" "$1"
+    else
+        printf '%s' "$1"
+    fi
+}
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --repo|-r)     REPO="$2"; shift 2 ;;
         --repo=*)      REPO="${1#--repo=}"; shift ;;
         --force)       FORCE=1; shift ;;
+        --no-proxy)    GH_PROXY=""; shift ;;
+        --gh-proxy)    GH_PROXY="${2:-https://ghfast.top}"; shift 2 ;;
+        --gh-proxy=*)  GH_PROXY="${1#--gh-proxy=}"; shift ;;
         --keep-dep)    STRIP_DEPS=""; shift ;;
         -h|--help)     usage ;;
         *)             PKGS="$PKGS $1"; shift ;;
@@ -73,10 +88,10 @@ fi
 info "查询最新 Release ..."
 
 get_latest_tag() {
-    loc=$(curl -fsSI --max-time 20 "https://github.com/$REPO/releases/latest" 2>/dev/null \
+    loc=$(curl -fsSI --max-time 20 "$(gurl "https://github.com/$REPO/releases/latest")" 2>/dev/null \
         | tr -d '\r' | sed -n 's#^[Ll]ocation: .*/releases/tag/##p')
     if [ -z "$loc" ]; then
-        page=$(curl -fsSL --max-time 30 "https://github.com/$REPO/releases" 2>/dev/null)
+        page=$(curl -fsSL --max-time 30 "$(gurl "https://github.com/$REPO/releases")" 2>/dev/null)
         loc=$(printf '%s' "$page" | grep -oE '/releases/tag/[^"?]+' | head -1 | sed 's#.*/tag/##')
     fi
     [ -n "$loc" ] || return 1
@@ -85,7 +100,7 @@ get_latest_tag() {
 
 list_assets() {
     tag="$1"
-    curl -fsSL --max-time 30 "https://github.com/$REPO/releases/expanded_assets/$tag" 2>/dev/null \
+    curl -fsSL --max-time 30 "$(gurl "https://github.com/$REPO/releases/expanded_assets/$tag")" 2>/dev/null \
         | grep -oE "href=\"/$REPO/releases/download/$tag/[^\"]+\.apk\"" \
         | sed "s#^href=\"/#https://github.com/#; s#\"\$##" | sort -u
 }
@@ -219,7 +234,7 @@ install_url() {
     [ -n "$url" ] || return 1
     file=$(basename "$url")
     info "下载 $file"
-    curl -fsSL --max-time 300 --retry 2 -o "/tmp/$file" "$url" || { echo "✗ 下载失败"; return 1; }
+    curl -fsSL --max-time 300 --retry 2 -o "/tmp/$file" "$(gurl "$url")" || { echo "✗ 下载失败"; return 1; }
 
     strip_apk_dep "/tmp/$file"
 
