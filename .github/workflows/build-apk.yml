@@ -45,8 +45,9 @@ jobs:
 
           version="${pkg_version}-r${pkg_release}"
           echo "version=${version}"                >> "$GITHUB_OUTPUT"
-          echo "release_tag=honk_${version}"       >> "$GITHUB_OUTPUT"
-          echo "release_name=honk_${version}"      >> "$GITHUB_OUTPUT"
+          rel_date=$(date -u +%Y.%m.%d)
+          echo "release_tag=honk_${rel_date}"       >> "$GITHUB_OUTPUT"
+          echo "release_name=honk_${rel_date}"      >> "$GITHUB_OUTPUT"
           echo "sdk=${sdk}"                        >> "$GITHUB_OUTPUT"
           echo "packages=${packages}"              >> "$GITHUB_OUTPUT"
 
