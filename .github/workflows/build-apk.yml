@@ -76,7 +76,11 @@ jobs:
             echo "should_build=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          last=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json body --jq '.[0].body // ""' || echo "")
+          latest_tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json tagName --jq '.[0].tagName // ""' || echo "")
+          last=""
+          if [ -n "$latest_tag" ]; then
+            last=$(gh release view "$latest_tag" --repo "$GITHUB_REPOSITORY" --json body --jq '.body // ""' || echo "")
+          fi
           if printf '%s' "$last" | grep -q "fp:${fp}"; then
             echo "无变化（指纹 ${fp} 与最近一次 Release 相同）：跳过编译与发布"
             echo "should_build=false" >> "$GITHUB_OUTPUT"
