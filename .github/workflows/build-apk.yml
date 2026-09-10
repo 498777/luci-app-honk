@@ -11,6 +11,11 @@ on:
         description: '要编译的包，空格分隔'
         required: false
         default: 'honk luci-app-honk'
+      force:
+        description: '忽略变更检测，强制编译并发布'
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -31,6 +36,8 @@ jobs:
       release_name: ${{ steps.meta.outputs.release_name }}
       sdk: ${{ steps.meta.outputs.sdk }}
       packages: ${{ steps.meta.outputs.packages }}
+      should_build: ${{ steps.guard.outputs.should_build }}
+      fp: ${{ steps.guard.outputs.fp }}
     steps:
       - uses: actions/checkout@v4
 
@@ -53,10 +60,36 @@ jobs:
 
           echo "Version: ${version} / SDK: ${sdk} / Packages: ${packages}"
 
+      - name: Change guard
+        id: guard
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          up="$(grep '^HONK_RELEASE_TAG:=' honk/Makefile | head -n 1 | cut -d= -f2)"
+          src=$(git ls-files -s honk luci-app-honk Makefile | git hash-object --stdin)
+          fp="${up}-${src:0:12}"
+          echo "fp=${fp}" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "手动强制构建（force=true）"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1 --json body --jq '.[0].body // ""' || echo "")
+          if printf '%s' "$last" | grep -q "fp:${fp}"; then
+            echo "无变化（指纹 ${fp} 与最近一次 Release 相同）：跳过编译与发布"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "检测到变化（指纹 ${fp}）：继续编译"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     name: Build ${{ matrix.short }}
     runs-on: ubuntu-latest
     needs: prepare
+    if: needs.prepare.outputs.should_build == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -112,6 +145,7 @@ jobs:
     needs:
       - prepare
       - build
+    if: needs.prepare.outputs.should_build == 'true'
     steps:
       - name: Download apk artifacts
         uses: actions/download-artifact@v4
@@ -171,8 +205,9 @@ jobs:
           title="${{ needs.prepare.outputs.release_name }}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$tag" rel/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes "fp:${{ needs.prepare.outputs.fp }} Automated build of ${title}"
           else
-            gh release create "$tag" rel/* --repo "$GITHUB_REPOSITORY" --title "$title" --notes "Automated build of ${title}"
+            gh release create "$tag" rel/* --repo "$GITHUB_REPOSITORY" --title "$title" --notes "fp:${{ needs.prepare.outputs.fp }} Automated build of ${title}"
           fi
 
       - name: Delete old releases
