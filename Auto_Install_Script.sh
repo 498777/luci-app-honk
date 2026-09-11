@@ -7,8 +7,15 @@ FORCE=0
 GH_PROXY="${GH_PROXY:-https://ghfast.top}"
 TMPDIR_WORK="${TMPDIR:-/tmp}/honk-install.$$"
 PLANFILE="/tmp/honk-plan.$$"
+APKREPO="${TMPDIR:-/tmp}/apkrepo.$$"
 DECIDED="/tmp/honk-decide.$$"
 PKGS=""
+
+# 自愈：清理 /etc/apk/world 中遗留的 /tmp 路径条目（旧版脚本安装留下的）
+if [ -f /etc/apk/world ] && grep -q '/tmp/' /etc/apk/world 2>/dev/null; then
+    sed -i '/\/tmp\//d' /etc/apk/world
+    echo "ℹ 已清理 /etc/apk/world 中的 /tmp 悬空条目"
+fi
 
 usage() {
     cat <<'EOF'
@@ -229,6 +236,31 @@ strip_apk_dep() {
     return 0
 }
 
+pkg_name_of() {
+    gzip -dc "$1" 2>/dev/null | tar -xO .PKGINFO 2>/dev/null | sed -n 's/^name = //p' | head -n 1
+}
+
+# 本地 apk 建索引后按包名安装（避免把 /tmp 路径写进 /etc/apk/world）
+install_local_apk() {
+    f="$1"
+    [ -f "$f" ] || return 1
+    name=$(pkg_name_of "$f")
+    [ -n "$name" ] || { echo "✗ 无法读取包名：$f"; return 1; }
+    mkdir -p "$APKREPO"
+    mv -f "$f" "$APKREPO/$(basename "$f")" || return 1
+    ( cd "$APKREPO" && apk index -o APKINDEX.tar.gz ./*.apk >/dev/null 2>&1 ) \
+      || ( cd "$APKREPO" && apk index --allow-untrusted -o APKINDEX.tar.gz ./*.apk >/dev/null 2>&1 )
+    if apk add --allow-untrusted --repository "$APKREPO" --no-network "$name"; then
+        :
+    else
+        echo "  ⚠ 常规安装失败，尝试 --force-broken-world"
+        apk add --allow-untrusted --force-broken-world --repository "$APKREPO" --no-network "$name" \
+          || { echo "✗ 安装失败"; return 1; }
+    fi
+    ok "$name 安装完成"
+    return 0
+}
+
 install_url() {
     url="$1"
     [ -n "$url" ] || return 1
@@ -239,15 +271,7 @@ install_url() {
     strip_apk_dep "/tmp/$file"
 
     echo "  ⬇ 安装 $file"
-    if apk add --allow-untrusted "/tmp/$file"; then
-        :
-    else
-        echo "  ⚠ 常规安装失败，尝试 --force-broken-world"
-        apk add --allow-untrusted --force-broken-world "/tmp/$file" || {
-            rm -f "/tmp/$file"; echo "✗ 安装失败"; return 1; }
-    fi
-    rm -f "/tmp/$file"
-    ok "$file 安装完成"
+    install_local_apk "/tmp/$file" || { rm -f "/tmp/$file"; return 1; }
     return 0
 }
 
@@ -301,6 +325,7 @@ echo ""
 if [ ! -s "$DECIDED" ]; then
     echo "✅ 所有包已是最新版本，无需操作（--force 可强制重装）"
     rm -f "$PLANFILE" "$DECIDED"
+rm -rf "$APKREPO"
     exit 0
 fi
 
