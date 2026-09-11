@@ -321,6 +321,25 @@ rm -rf /tmp/luci-indexcache /tmp/luci-modulecache 2>/dev/null
 /etc/init.d/uhttpd restart  >/dev/null 2>&1
 
 echo ""
+info "为 dae/honk 建立 geo 软链 ..."
+geo_linked=0
+for gd in /usr/share/dae /usr/share/honk; do
+    mkdir -p "$gd"
+    for gf in geoip.dat geosite.dat; do
+        if [ -f "/usr/share/v2ray/$gf" ]; then
+            ln -sf "/usr/share/v2ray/$gf" "$gd/$gf"
+            geo_linked=1
+        fi
+    done
+done
+if [ "$geo_linked" -eq 1 ]; then
+    ok "已在 /usr/share/dae 与 /usr/share/honk 建立 geo 软链"
+else
+    echo "⚠ 未发现 /usr/share/v2ray 下的 geo 数据；若规则用到 geoip:/geosite:，"
+    echo "  需自行安装官方包（apk add v2ray-geoip v2ray-geosite），再重跑本脚本即可建链。"
+fi
+
+echo ""
 if [ -n "$FAILED" ]; then
     echo "✗ 以下包安装失败：$FAILED"
     exit 1
@@ -330,5 +349,7 @@ echo ""
 echo "下一步："
 echo "  1. LuCI 界面：服务 → HONK（若看不到请清浏览器缓存或重新登录）"
 echo "  2. 命令行启用：uci set honk.config.enabled=1; uci commit honk; /etc/init.d/honk start"
-echo "  3. 首次使用请先在 Node Settings 页签（或 /etc/honk/config.d/node.dae）"
+echo "  3. geo 软链已自动建立在 /usr/share/dae 与 /usr/share/honk"
+echo "     若提示缺少 geo 数据，请先 apk add v2ray-geoip v2ray-geosite 再重跑本脚本"
+echo "  4. 首次使用请先在 Node Settings 页签（或 /etc/honk/config.d/node.dae）"
 echo "     把示例节点/订阅替换成自己的，再启用服务，否则 honk 会拒绝启动"
