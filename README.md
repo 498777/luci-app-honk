@@ -12,6 +12,7 @@ OpenWrt 上 [honk](https://github.com/daeuniverse/honk)（eBPF 透明代理引�
 
 - **只出 apk**（OpenWrt 25.x apk 体系）；
 - **不依赖 `vmlinux-btf`**：移除条件依赖与 choice，固定使用内核自带 BTF；
+- **geo 数据**：依赖 `dae-geoip`/`dae-geosite`（分别依赖 `v2ray-geoip`/`v2ray-geosite`，并在 `/usr/share/dae` 自动建好软链）；
 - **启动脚本**：新增日志轮转、去掉 resolv.conf 劫持（上游从不创建日志文件）。
 
 ## 一键安装

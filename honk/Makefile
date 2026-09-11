@@ -4,7 +4,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=honk
 PKG_VERSION:=0.0.1_beta75
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 HONK_RELEASE_TAG:=v0.0.1.beta.75
 
@@ -41,7 +41,7 @@ define Package/honk
   DEPENDS:=@(x86_64||aarch64) \
     +ca-bundle +ip-full \
     +kmod-sched-core +kmod-sched-bpf +kmod-veth +kmod-nft-queue \
-    +v2ray-geoip +v2ray-geosite \
+    +dae-geoip +dae-geosite \
     +@KERNEL_XDP_SOCKETS
 endef
 
