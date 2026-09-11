@@ -36,6 +36,7 @@ jobs:
       release_name: ${{ steps.meta.outputs.release_name }}
       sdk: ${{ steps.meta.outputs.sdk }}
       packages: ${{ steps.meta.outputs.packages }}
+      commit: ${{ steps.meta.outputs.commit }}
       should_build: ${{ steps.guard.outputs.should_build }}
       fp: ${{ steps.guard.outputs.fp }}
     steps:
@@ -52,6 +53,7 @@ jobs:
 
           version="${pkg_version}-r${pkg_release}"
           echo "version=${version}"                >> "$GITHUB_OUTPUT"
+          echo "commit=${GITHUB_SHA:0:7}"          >> "$GITHUB_OUTPUT"
           rel_date=$(date -u +%Y.%m.%d)
           echo "release_tag=honk_${rel_date}"       >> "$GITHUB_OUTPUT"
           echo "release_name=honk_${rel_date}"      >> "$GITHUB_OUTPUT"
@@ -209,9 +211,9 @@ jobs:
           title="${{ needs.prepare.outputs.release_name }}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$tag" rel/* --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes "fp:${{ needs.prepare.outputs.fp }} Automated build of ${title}"
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes "fp:${{ needs.prepare.outputs.fp }} commit:${{ needs.prepare.outputs.commit }} Automated build of ${title}"
           else
-            gh release create "$tag" rel/* --repo "$GITHUB_REPOSITORY" --title "$title" --notes "fp:${{ needs.prepare.outputs.fp }} Automated build of ${title}"
+            gh release create "$tag" rel/* --repo "$GITHUB_REPOSITORY" --title "$title" --notes "fp:${{ needs.prepare.outputs.fp }} commit:${{ needs.prepare.outputs.commit }} Automated build of ${title}"
           fi
 
       - name: Delete old releases
