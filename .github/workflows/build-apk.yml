@@ -37,7 +37,6 @@ jobs:
       sdk: ${{ steps.meta.outputs.sdk }}
       packages: ${{ steps.meta.outputs.packages }}
       should_build: ${{ steps.guard.outputs.should_build }}
-      fp: ${{ steps.guard.outputs.fp }}
     steps:
       - uses: actions/checkout@v4
 
@@ -67,10 +66,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          up="$(grep '^HONK_RELEASE_TAG:=' honk/Makefile | head -n 1 | cut -d= -f2)"
-          src=$(git ls-files -s honk luci-app-honk Makefile | git hash-object --stdin)
-          fp="${up}-${src:0:12}"
-          echo "fp=${fp}" >> "$GITHUB_OUTPUT"
+          ver="${{ steps.meta.outputs.version }}"
           if [ "${{ inputs.force }}" = "true" ]; then
             echo "手动强制构建（force=true）"
             echo "should_build=true" >> "$GITHUB_OUTPUT"
@@ -81,13 +77,14 @@ jobs:
           if [ -n "$latest_tag" ]; then
             last=$(gh release view "$latest_tag" --repo "$GITHUB_REPOSITORY" --json body --jq '.body // ""' || echo "")
           fi
-          if printf '%s' "$last" | grep -q "fp:${fp}"; then
-            echo "无变化（指纹 ${fp} 与最近一次 Release 相同）：跳过编译与发布"
+          if printf '%s' "$last" | grep -q "version:${ver}"; then
+            echo "无变化（版本 ${ver} 与最近一次 Release 相同）：跳过编译与发布"
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           else
-            echo "检测到变化（指纹 ${fp}）：继续编译"
+            echo "检测到变化（版本 ${ver}）：继续编译"
             echo "should_build=true" >> "$GITHUB_OUTPUT"
           fi
+
 
   build:
     name: Build ${{ matrix.short }}
@@ -209,9 +206,9 @@ jobs:
           title="${{ needs.prepare.outputs.release_name }}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$tag" rel/* --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes "fp:${{ needs.prepare.outputs.fp }} version:${{ needs.prepare.outputs.version }} Automated build of ${title}"
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes "version:${{ needs.prepare.outputs.version }} Automated build of ${title}"
           else
-            gh release create "$tag" rel/* --repo "$GITHUB_REPOSITORY" --title "$title" --notes "fp:${{ needs.prepare.outputs.fp }} version:${{ needs.prepare.outputs.version }} Automated build of ${title}"
+            gh release create "$tag" rel/* --repo "$GITHUB_REPOSITORY" --title "$title" --notes "version:${{ needs.prepare.outputs.version }} Automated build of ${title}"
           fi
 
       - name: Delete old releases
