@@ -336,20 +336,27 @@ rm -rf /tmp/luci-indexcache /tmp/luci-modulecache 2>/dev/null
 /etc/init.d/uhttpd restart  >/dev/null 2>&1
 
 echo ""
-info "为 honk 建立 geo 软链 ..."
+info "准备 geo 数据（softlink -> /usr/share/honk）..."
 mkdir -p /usr/share/honk
-geo_linked=0
-for gf in geoip.dat geosite.dat; do
-    if [ -f "/usr/share/v2ray/$gf" ]; then
-        ln -sf "/usr/share/v2ray/$gf" "/usr/share/honk/$gf"
-        geo_linked=1
+link_geo() {
+    for gf in geoip.dat geosite.dat; do
+        [ -f "/usr/share/v2ray/$gf" ] && ln -sf "/usr/share/v2ray/$gf" "/usr/share/honk/$gf"
+    done
+}
+link_geo
+if [ ! -f /usr/share/v2ray/geoip.dat ] || [ ! -f /usr/share/v2ray/geosite.dat ]; then
+    info "缺少 geo 数据，尝试自动补装 v2ray-geoip / v2ray-geosite ..."
+    if apk add --allow-untrusted v2ray-geoip v2ray-geosite >/dev/null 2>&1; then
+        link_geo
+    else
+        echo "⚠ 源中无法安装 v2ray-geoip / v2ray-geosite；若规则用到 geoip:/geosite:，"
+        echo "  请确认软件源包含这两个包（apk search -x v2ray-geoip v2ray-geosite）后重试。"
     fi
-done
-if [ "$geo_linked" -eq 1 ]; then
-    ok "已在 /usr/share/honk 建立 geo 软链"
+fi
+if [ -f /usr/share/honk/geoip.dat ] || [ -f /usr/share/honk/geosite.dat ]; then
+    ok "geo 数据就绪，已建立软链"
 else
-    echo "⚠ 未发现 /usr/share/v2ray 下的 geo 数据；若规则用到 geoip:/geosite:，"
-    echo "  需自行安装官方包（apk add v2ray-geoip v2ray-geosite），再重跑本脚本即可建链。"
+    echo "⚠ 仍然缺少 geo 数据；未配置 geoip:/geosite: 规则时可忽略本提示。"
 fi
 
 echo ""
