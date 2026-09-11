@@ -99,12 +99,27 @@ main() {
     hash_x86_64="$(resolve_hash HONK_HASH_X86_64 "x86_64-unknown-linux-musl" "$suffix" "$tag")"
     hash_aarch64="$(resolve_hash HONK_HASH_AARCH64 "aarch64-unknown-linux-musl" "$suffix" "$tag")"
 
+    old_tag="$(grep '^HONK_RELEASE_TAG:=' "$MAKEFILE" | head -n 1 | cut -d= -f2-)"
+    old_rel="$(grep '^PKG_RELEASE:=' "$MAKEFILE" | head -n 1 | cut -d= -f2-)"
+    old_hx="$(grep '^HONK_HASH_X86_64:=' "$MAKEFILE" | head -n 1 | cut -d= -f2-)"
+    old_ha="$(grep '^HONK_HASH_AARCH64:=' "$MAKEFILE" | head -n 1 | cut -d= -f2-)"
+    [ -n "$old_rel" ] || old_rel=1
+
+    if [ "$tag" != "$old_tag" ]; then
+        next_rel=1
+    elif [ "$hash_x86_64" != "$old_hx" ] || [ "$hash_aarch64" != "$old_ha" ]; then
+        next_rel=$((old_rel + 1))
+    else
+        next_rel="$old_rel"
+    fi
+
     sed -i -E "s/^PKG_VERSION:=.*/PKG_VERSION:=${version}/" "$MAKEFILE"
     sed -i -E "s/^HONK_RELEASE_TAG:=.*/HONK_RELEASE_TAG:=${tag}/" "$MAKEFILE"
     sed -i -E "s/^HONK_HASH_X86_64:=.*/HONK_HASH_X86_64:=${hash_x86_64}/" "$MAKEFILE"
     sed -i -E "s/^HONK_HASH_AARCH64:=.*/HONK_HASH_AARCH64:=${hash_aarch64}/" "$MAKEFILE"
+    sed -i -E "s/^PKG_RELEASE:=.*/PKG_RELEASE:=${next_rel}/" "$MAKEFILE"
 
-    echo "honk updated to ${tag} (PKG_VERSION=${version})"
+    echo "honk updated to ${tag} (PKG_VERSION=${version}, PKG_RELEASE=${next_rel})"
     echo "HONK_HASH_X86_64=${hash_x86_64}"
     echo "HONK_HASH_AARCH64=${hash_aarch64}"
 }
