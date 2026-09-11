@@ -7,7 +7,6 @@ FORCE=0
 GH_PROXY="${GH_PROXY:-https://ghfast.top}"
 TMPDIR_WORK="${TMPDIR:-/tmp}/honk-install.$$"
 PLANFILE="/tmp/honk-plan.$$"
-APKREPO="${TMPDIR:-/tmp}/apkrepo.$$"
 DECIDED="/tmp/honk-decide.$$"
 PKGS=""
 
@@ -236,28 +235,20 @@ strip_apk_dep() {
     return 0
 }
 
-pkg_name_of() {
-    gzip -dc "$1" 2>/dev/null | tar -xO .PKGINFO 2>/dev/null | sed -n 's/^name = //p' | head -n 1
-}
-
-# 本地 apk 建索引后按包名安装（避免把 /tmp 路径写进 /etc/apk/world）
 install_local_apk() {
     f="$1"
     [ -f "$f" ] || return 1
-    name=$(pkg_name_of "$f")
-    [ -n "$name" ] || { echo "✗ 无法读取包名：$f"; return 1; }
-    mkdir -p "$APKREPO"
-    mv -f "$f" "$APKREPO/$(basename "$f")" || return 1
-    ( cd "$APKREPO" && apk index -o APKINDEX.tar.gz ./*.apk >/dev/null 2>&1 ) \
-      || ( cd "$APKREPO" && apk index --allow-untrusted -o APKINDEX.tar.gz ./*.apk >/dev/null 2>&1 )
-    if apk add --allow-untrusted --repository "$APKREPO" --no-network "$name"; then
+    if apk add --allow-untrusted "$f"; then
         :
     else
         echo "  ⚠ 常规安装失败，尝试 --force-broken-world"
-        apk add --allow-untrusted --force-broken-world --repository "$APKREPO" --no-network "$name" \
-          || { echo "✗ 安装失败"; return 1; }
+        apk add --allow-untrusted --force-broken-world "$f" || return 1
     fi
-    ok "$name 安装完成"
+    # apk 会把本地文件路径写进 /etc/apk/world，留着下次安装会报 no such package —— 装完即清
+    if [ -f /etc/apk/world ]; then
+        sed -i "\|^$f\$|d" /etc/apk/world 2>/dev/null || true
+    fi
+    ok "$(basename "$f") 安装完成"
     return 0
 }
 
@@ -325,7 +316,6 @@ echo ""
 if [ ! -s "$DECIDED" ]; then
     echo "✅ 所有包已是最新版本，无需操作（--force 可强制重装）"
     rm -f "$PLANFILE" "$DECIDED"
-rm -rf "$APKREPO"
     exit 0
 fi
 
