@@ -10,10 +10,14 @@ PLANFILE="/tmp/honk-plan.$$"
 DECIDED="/tmp/honk-decide.$$"
 PKGS=""
 
-# 自愈：清理 /etc/apk/world 中遗留的 /tmp 路径条目（旧版脚本安装留下的）
+# 自愈：清理 /etc/apk/world 中遗留的裸路径条目。
+# 更早版本的脚本用 `apk add /tmp/xxx.apk` 装包，apk 会把这条文件路径原样写进 world，
+# 文件删除后每次 apk 操作都报 no such package。这里在开始前统一清除。
+# 说明：当前版本写入的是 "包名><身份哈希" 约束，由下面的 world_drop 按包名精确处理，
+# 不在自愈段做无差别删除，以免误伤用户手工添加的 pin。
 if [ -f /etc/apk/world ] && grep -q '/tmp/' /etc/apk/world 2>/dev/null; then
-    sed -i '/\/tmp\//d' /etc/apk/world
-    echo "ℹ 已清理 /etc/apk/world 中的 /tmp 悬空条目"
+    sed -i '/^\/.*\.apk$/d' /etc/apk/world
+    echo "ℹ 已清理 /etc/apk/world 中的失效路径条目"
 fi
 
 usage() {
@@ -237,19 +241,39 @@ strip_apk_dep() {
     return 0
 }
 
+# 从 apk 文件名解析包名：luci-app-honk-2.0.0-r1.apk -> luci-app-honk
+pkg_name_of() {
+    b=$(basename "$1"); b=${b%.apk}
+    printf '%s' "$b" | sed 's/-[0-9][0-9A-Za-z._+~-]*-r[0-9][0-9A-Za-z._+~-]*$//'
+}
+
+# 按包名清理 /etc/apk/world 中的约束条目。
+# apk add <file> 会把 "包名><身份哈希" 形式的约束写进 world（见 apk-add(8)：
+# "If a file is added, a constraint against the package identity hash will be add"），
+# .apk 文件删除后该约束即失效，后续任何 apk 操作都报 no such package。
+# 这里精确按包名删除，不用 --force-broken-world（后者会无差别删约束直到可求解）。
+world_drop() {
+    n="$1"
+    [ -n "$n" ] || return 0
+    [ -f /etc/apk/world ] || return 0
+    sed -i "\|^${n}\([<>=~]\|\$\|@\)|d; \|^${n}><|d" /etc/apk/world 2>/dev/null || true
+}
+
 install_local_apk() {
     f="$1"
     [ -f "$f" ] || return 1
-    if apk add --allow-untrusted "$f"; then
-        :
-    else
-        echo "  ⚠ 常规安装失败，尝试 --force-broken-world"
-        apk add --allow-untrusted --force-broken-world "$f" || return 1
+    n=$(pkg_name_of "$f")
+
+    # 安装前先清掉同名残留约束，避免失效的身份哈希约束让整个事务失败
+    world_drop "$n"
+
+    if ! apk add --allow-untrusted "$f"; then
+        echo "  ✗ $(basename "$f") 安装失败，请看上面的 apk 报错"
+        return 1
     fi
-    # apk 会把本地文件路径写进 /etc/apk/world，留着下次安装会报 no such package —— 装完即清
-    if [ -f /etc/apk/world ]; then
-        sed -i "\|^$f\$|d" /etc/apk/world 2>/dev/null || true
-    fi
+
+    # 装完即清：apk 会把 "包名><身份哈希" 约束写进 world，留着下次会报 no such package
+    world_drop "$n"
     ok "$(basename "$f") 安装完成"
     return 0
 }
