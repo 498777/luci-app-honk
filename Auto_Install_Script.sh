@@ -144,6 +144,8 @@ apk_installed_ver() {
         }'
 }
 
+norm_ver() { printf '%s' "$1" | tr -d '~._-'; }
+
 # --------------------------------------------------------- 挑选包（写入 PLANFILE：每行 "URL|包名"）
 select_pkg() {
     cands=$(echo "$URLS" | grep -E "/${1}[-_][^\"/]*\.apk$")
@@ -304,7 +306,7 @@ while IFS='|' read -r u n; do
     [ -n "$u" ] || continue
     newv=$(asset_ver "$u" "$n")
     oldv=$(apk_installed_ver "$n")
-    if [ -n "$oldv" ] && [ "$oldv" = "$newv" ] && [ "$FORCE" -eq 0 ]; then
+    if [ -n "$oldv" ] && [ "$(norm_ver "$oldv")" = "$(norm_ver "$newv")" ] && [ "$FORCE" -eq 0 ]; then
         echo "  · $n  $oldv == $newv  已是最新，跳过"
     else
         echo "  · $n  ${oldv:-未安装} → $newv"
