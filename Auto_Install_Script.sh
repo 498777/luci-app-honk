@@ -10,6 +10,10 @@ PLANFILE="/tmp/honk-plan.$$"
 DECIDED="/tmp/honk-decide.$$"
 PKGS=""
 
+# 核心服务名与"本次是否更新了核心"标记（供安装后按需重启使用）
+CORE_SVC="honk"
+CORE_UPDATED=0
+
 # 自愈：清理 /etc/apk/world 中遗留的裸路径条目。
 # 更早版本的脚本用 `apk add /tmp/xxx.apk` 装包，apk 会把这条文件路径原样写进 world，
 # 文件删除后每次 apk 操作都报 no such package。这里在开始前统一清除。
@@ -292,6 +296,36 @@ install_url() {
     return 0
 }
 
+# --------------------------------------------------------- 更新核心后按需重启
+# 仅当本次确实安装/更新了核心包（honk/dae），且服务已启用时才接管重启：
+#   - 已启用且正在运行 -> 重启，让新版本生效
+#   - 已启用但未运行   -> 启动，让新版本生效
+#   - 未启用（多为全新安装、尚未配置节点）-> 不自动启动，避免启动一个没配好节点的核心而报错
+# 前提检查用 OpenWrt procd 的 enabled/running，不做无差别启动。
+restart_core_if_needed() {
+    [ "$CORE_UPDATED" -eq 1 ] || return 0
+    initscript="/etc/init.d/$CORE_SVC"
+    [ -x "$initscript" ] || return 0
+
+    if ! "$initscript" enabled >/dev/null 2>&1; then
+        echo "  ℹ $CORE_SVC 尚未启用，跳过自动重启（配置并启用后才会运行新版本）"
+        return 0
+    fi
+
+    running=0
+    "$initscript" running >/dev/null 2>&1 && running=1
+    if [ "$running" -eq 1 ]; then
+        echo "  ↻ $CORE_SVC 正在运行，重启以应用新核心 ..."
+    else
+        echo "  ↻ $CORE_SVC 已启用但未运行，启动以应用新核心 ..."
+    fi
+    if "$initscript" restart; then
+        ok "$CORE_SVC 已应用新版本"
+    else
+        echo "⚠ $CORE_SVC 重启失败，请检查配置与日志：logread | grep $CORE_SVC"
+    fi
+}
+
 # --------------------------------------------------------- 计算待装清单
 : > "$PLANFILE"; : > "$DECIDED"
 
@@ -351,7 +385,11 @@ echo ""
 
 FAILED=""
 while IFS='|' read -r u n; do
-    install_url "$u" || FAILED="$FAILED $(basename "$u")"
+    if install_url "$u"; then
+        [ "$n" = "$CORE_SVC" ] && CORE_UPDATED=1
+    else
+        FAILED="$FAILED $(basename "$u")"
+    fi
 done < "$DECIDED"
 rm -f "$PLANFILE" "$DECIDED"
 
@@ -384,6 +422,10 @@ if [ -f /usr/share/honk/geoip.dat ] || [ -f /usr/share/honk/geosite.dat ]; then
 else
     echo "⚠ 仍然缺少 geo 数据；未配置 geoip:/geosite: 规则时可忽略本提示。"
 fi
+
+echo ""
+info "核心已更新，按服务启用状态决定是否重启 ..."
+restart_core_if_needed
 
 echo ""
 if [ -n "$FAILED" ]; then
