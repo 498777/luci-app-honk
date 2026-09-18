@@ -1,6 +1,7 @@
 # route.dae
 routing {
     # 本机 WAN / LAN 地址放行（b79 起 honk 不再自动插入）。
+    # 接口取自 global.wan_interface / global.lan_interface（值为 auto 时回退自动侦测），
     # 由 /etc/hotplug.d/iface/99-honk 在接口事件时填入实际地址。
     dip() -> direct(must)  # AUTO_WAN4_IP
     dip() -> direct(must)  # AUTO_WAN6_IP
