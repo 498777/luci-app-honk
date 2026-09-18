@@ -1,25 +1,33 @@
 #!/bin/sh
 [ "$ACTION" = "ifup" ] || [ "$ACTION" = "ifupdate" ] || exit 0
 [ "$ACTION" = "ifupdate" ] && [ -z "$IFUPDATE_ADDRESSES" ] && [ -z "$IFUPDATE_DATA" ] && exit 0
-. /lib/functions/network.sh
-network_flush_cache
-network_find_wan NET_IF
 [ "$(uci -q get honk.config.enabled)" = "1" ] || exit 0
 ROUTE_FILE="/etc/honk/config.d/route.dae"
 for m in AUTO_WAN4_IP AUTO_WAN6_IP AUTO_LAN6_IP; do
 grep -q "# $m" "$ROUTE_FILE" 2>/dev/null || exit 0
 done
-WAN_DEV="$DEVICE"
-[ -z "$WAN_DEV" ] && network_get_device WAN_DEV "$NET_IF" 2>/dev/null
-[ -z "$WAN_DEV" ] && WAN_DEV="$NET_IF"
-LAN_DEV=""
-network_get_device LAN_DEV "lan" 2>/dev/null
-[ -z "$LAN_DEV" ] && LAN_DEV="br-lan"
-[ -n "$DEVICE" ] && [ "$DEVICE" != "$WAN_DEV" ] && [ "$DEVICE" != "$LAN_DEV" ] && exit 0
-WAN4=$(ip -o -4 addr show dev "$WAN_DEV" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)
-WAN6=$(ip -o -6 addr show dev "$WAN_DEV" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | grep -Ev '^(fe80|f[cd])' | head -1)
+CONF_DIR="/etc/honk"
+conf_get() {
+sed -n "s/^[[:space:]]*$1[[:space:]]*:[[:space:]]*//p" "$CONF_DIR"/config.dae "$CONF_DIR"/config.d/*.dae 2>/dev/null \
+| sed 's/#.*$//' | tr -d "\"' \t\r" | sed -n '$p' | cut -d, -f1
+}
+WAN_IF="$(conf_get wan_interface)"
+LAN_IF="$(conf_get lan_interface)"
+[ -z "$LAN_IF" ] || [ "$LAN_IF" = "auto" ] && LAN_IF="br-lan"
+case "$WAN_IF" in
+"" | auto)
+. /lib/functions/network.sh
+network_flush_cache
+network_find_wan NET_IF
+network_get_device WAN_IF "$NET_IF" 2>/dev/null
+[ -z "$WAN_IF" ] && WAN_IF="$NET_IF"
+;;
+esac
+[ -n "$DEVICE" ] && [ "$DEVICE" != "$WAN_IF" ] && [ "$DEVICE" != "$LAN_IF" ] && exit 0
+WAN4=$(ip -o -4 addr show dev "$WAN_IF" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | sed -n '1p')
+WAN6=$(ip -o -6 addr show dev "$WAN_IF" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | grep -Ev '^(fe80|f[cd])' | sed -n '1p')
 [ -z "$WAN6" ] && WAN6=$(ubus call network.interface.wan6 status 2>/dev/null | jsonfilter -e '@.ipv6-address[0].address')
-LAN6=$(ip -o -6 addr show dev "$LAN_DEV" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | grep -Ev '^(fe80|f[cd])' | head -1)
+LAN6=$(ip -o -6 addr show dev "$LAN_IF" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | grep -Ev '^(fe80|f[cd])' | sed -n '1p')
 [ -z "$LAN6" ] && LAN6=$(ubus call network.interface.lan status 2>/dev/null | jsonfilter -e '@.ipv6-address[0].address')
 wan4_line="    dip($WAN4) -> direct(must)  # AUTO_WAN4_IP"
 wan6_line="    dip($WAN6) -> direct(must)  # AUTO_WAN6_IP"
