@@ -1,5 +1,11 @@
 # route.dae
 routing {
+    # 本机 WAN / LAN 地址放行（b79 起 honk 不再自动插入）。
+    # 由 /etc/hotplug.d/iface/99-honk 在接口事件时填入实际地址。
+    dip() -> direct(must)  # AUTO_WAN4_IP
+    dip() -> direct(must)  # AUTO_WAN6_IP
+    dip() -> direct(must)  # AUTO_LAN6_IP
+
     pname(dnsmasq, zerotier-one) -> direct(must)
     dip(224.0.0.0/3, 'ff00::/8', geoip:private) -> direct
     domain(geosite:category-bank-cn, geosite:boc@!cn, geosite:synology) -> direct
