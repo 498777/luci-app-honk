@@ -46,6 +46,10 @@ awk -v w4="$wan4_line" -v w6="$wan6_line" -v l6="$lan6_line" '
   /# AUTO_LAN6_IP/ { print l6; next }
   { print }
 ' "$ROUTE_FILE" > "$TMP"
+if cmp -s "$TMP" "$ROUTE_FILE"; then
+rm -f "$TMP"
+exit 0
+fi
 mv "$TMP" "$ROUTE_FILE"
 /etc/init.d/honk running && /etc/init.d/honk hot_reload
 ) &
