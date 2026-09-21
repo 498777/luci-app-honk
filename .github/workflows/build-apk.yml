@@ -39,7 +39,7 @@ jobs:
       luci_version: ${{ steps.meta.outputs.luci_version }}
       should_build: ${{ steps.guard.outputs.should_build }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Generate version metadata
         id: meta
@@ -105,7 +105,7 @@ jobs:
             short: aarch64
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build packages
         uses: sbwml/openwrt-gh-action-sdk@a5b2472e626ba279c75c77f82a4e5385303f9561 # go1.26
