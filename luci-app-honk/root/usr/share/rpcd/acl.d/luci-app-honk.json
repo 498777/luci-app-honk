@@ -1,0 +1,34 @@
+{
+	"luci-app-honk": {
+		"description": "Grant access for luci-app-honk",
+		"read": {
+			"ubus": {
+				"system": [ "board", "info" ],
+				"service": [ "list" ],
+				"rc": [ "list" ]
+			},
+			"uci": [ "honk" ],
+			"file": {
+				"/etc/honk/config.dae": [ "read" ],
+				"/etc/honk/config.d/dns.dae": [ "read" ],
+				"/etc/honk/config.d/node.dae": [ "read" ],
+				"/etc/honk/config.d/route.dae": [ "read" ],
+				"/var/log/honk/honk.log": [ "read" ],
+				"/etc/init.d/honk hot_reload": [ "exec" ],
+				"/usr/libexec/honk-status": [ "exec" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"rc": [ "init" ]
+			},
+			"uci": [ "honk" ],
+			"file": {
+				"/etc/honk/config.dae": [ "write" ],
+				"/etc/honk/config.d/dns.dae": [ "write" ],
+				"/etc/honk/config.d/node.dae": [ "write" ],
+				"/etc/honk/config.d/route.dae": [ "write" ]
+			}
+		}
+	}
+}

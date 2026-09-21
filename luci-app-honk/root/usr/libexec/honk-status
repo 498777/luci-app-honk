@@ -1,0 +1,45 @@
+#!/bin/sh
+#
+# 供 LuCI（JS 版）读取 honk 运行状态，输出 JSON。
+# 由 htdocs/luci-static/resources/honk/editor.js 的 statusCard() 通过 fs.exec_direct 调用。
+# 只输出数值，无需处理 JSON 转义。
+#
+# 对照 Lua 版的 luci.controller.honk::act_status（pidof + /proc/<pid>/status 的 VmRSS）：
+# 放在这里而不是让界面直接读 /proc，是为了把 ACL 收敛到这一个脚本上。
+# 只用 shell 内建 + /proc，不依赖 PATH 上的 pidof/awk（cgi-exec 的环境不保证 PATH）。
+
+pid=""
+
+for dir in /proc/[0-9]*; do
+	[ -r "$dir/comm" ] || continue
+
+	comm=""
+	read -r comm < "$dir/comm" 2>/dev/null
+
+	if [ "$comm" = "honk-core" ]; then
+		pid="${dir#/proc/}"
+		break
+	fi
+done
+
+if [ -z "$pid" ]; then
+	printf '{"running":false}\n'
+	exit 0
+fi
+
+mem=""
+
+if [ -r "/proc/$pid/status" ]; then
+	while read -r key value rest; do
+		if [ "$key" = "VmRSS:" ]; then
+			mem="$value"
+			break
+		fi
+	done < "/proc/$pid/status"
+fi
+
+if [ -n "$mem" ]; then
+	printf '{"running":true,"pid":%s,"memory_kb":%s}\n' "$pid" "$mem"
+else
+	printf '{"running":true,"pid":%s}\n' "$pid"
+fi

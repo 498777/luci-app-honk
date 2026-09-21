@@ -1,0 +1,98 @@
+msgid "HONK"
+msgstr "HONK"
+
+msgid "RUNNING"
+msgstr "运行中"
+
+msgid "NOT RUNNING"
+msgstr "未运行"
+
+msgid "Collecting data..."
+msgstr "收集数据..."
+
+msgid "Start Service"
+msgstr "启动服务"
+
+msgid "Running Status"
+msgstr "运行状态"
+
+msgid "Reload Service"
+msgstr "重载服务"
+
+msgid "Reload Now"
+msgstr "立即重载"
+
+msgid "Reload service to apply configuration."
+msgstr "重载服务以使配置生效。"
+
+msgid "Global Settings"
+msgstr "全局设置"
+
+msgid "DNS Settings"
+msgstr "DNS 设置"
+
+msgid "Node Settings"
+msgstr "节点设置"
+
+msgid "Routing Settings"
+msgstr "路由设置"
+
+msgid "Global Configuration"
+msgstr "全局配置"
+
+msgid "DNS Configuration"
+msgstr "DNS 配置"
+
+msgid "Node Configuration"
+msgstr "节点配置"
+
+msgid "Route Configuration"
+msgstr "路由配置"
+
+msgid "Configure global settings for HONK."
+msgstr "调整 HONK 的全局设置。"
+
+msgid "Configure DNS settings for HONK."
+msgstr "调整 HONK 的 DNS 设置。"
+
+msgid "Configure nodes and groups for HONK."
+msgstr "调整 HONK 的节点与分组设置。"
+
+msgid "Configure routing rules for HONK."
+msgstr "调整 HONK 的路由规则。"
+
+msgid "Correctly configure the include field for separate-config to work, or enter complete configuration here."
+msgstr "请正确配置 include 字段以启用拆分配置，或在此处填写完整配置。"
+
+msgid "Logs"
+msgstr "日志"
+
+msgid "Scroll to bottom"
+msgstr "滚动到底部"
+
+msgid "Scroll to top"
+msgstr "滚动到顶部"
+
+msgid "Memory Usage"
+msgstr "内存占用"
+msgid "Format Code"
+msgstr "格式化代码"
+
+msgid "Configuration"
+msgstr "配置"
+
+msgid "Unable to read %s: %s"
+msgstr "无法读取 %s：%s"
+
+msgid "Configuration saved and hot-reloaded."
+msgstr "配置已保存并热重载。"
+
+msgid "Editor unavailable, plain textarea is used: %s"
+msgstr "编辑器不可用，已退回普通文本框：%s"
+
+msgid "Service reloaded successfully"
+msgstr "服务重载成功"
+
+msgid "Reload failed: %s"
+msgstr "重载失败：%s"
+
