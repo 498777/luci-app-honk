@@ -424,10 +424,12 @@ function editorPage(opts) {
 					'class': 'cbi-button cbi-button-action',
 					'type': 'button',
 					'click': function() {
-						return L.resolveDefault(fs.exec_direct(INITD, [ 'hot_reload' ]), null).then(function() {
+						/* 不能用 L.resolveDefault(..., null) 包住：它会把 rejection 吞成 null，
+						   下面的 .catch 永远进不去，重载失败也不会有任何提示 */
+						return fs.exec_direct(INITD, [ 'hot_reload' ]).then(function() {
 							ui.addNotification(null, E('p', _('Service reloaded successfully')), 'info');
 						}).catch(function(err) {
-							ui.addNotification(null, E('p', _('Reload failed: %s').format(err.message)), 'error');
+							ui.addNotification(null, E('p', _('Reload failed: %s').format(err && err.message ? err.message : err)), 'error');
 						});
 					}
 				}, _('Reload Now'));
@@ -467,9 +469,12 @@ function editorPage(opts) {
 
 		handleSaveApply: function(ev, mode) {
 			return this.handleSave(ev).then(function() {
-				return L.resolveDefault(fs.exec_direct(INITD, [ 'hot_reload' ]), null);
+				/* 同上：去掉 L.resolveDefault 包装，热重载失败要能看见 */
+				return fs.exec_direct(INITD, [ 'hot_reload' ]);
 			}).then(function() {
 				ui.addNotification(null, E('p', _('Configuration saved and hot-reloaded.')), 'info');
+			}).catch(function(err) {
+				ui.addNotification(null, E('p', _('Reload failed: %s').format(err && err.message ? err.message : err)), 'error');
 			});
 		},
 

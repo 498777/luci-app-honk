@@ -1,3 +1,17 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-honk\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: zh_Hans\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
 msgid "HONK"
 msgstr "HONK"
 
@@ -21,9 +35,6 @@ msgstr "重载服务"
 
 msgid "Reload Now"
 msgstr "立即重载"
-
-msgid "Reload service to apply configuration."
-msgstr "重载服务以使配置生效。"
 
 msgid "Global Settings"
 msgstr "全局设置"
@@ -75,6 +86,7 @@ msgstr "滚动到顶部"
 
 msgid "Memory Usage"
 msgstr "内存占用"
+
 msgid "Format Code"
 msgstr "格式化代码"
 
@@ -95,4 +107,3 @@ msgstr "服务重载成功"
 
 msgid "Reload failed: %s"
 msgstr "重载失败：%s"
-

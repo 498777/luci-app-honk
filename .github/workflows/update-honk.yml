@@ -44,6 +44,13 @@ jobs:
       - name: Push changes
         if: steps.commit.outputs.changed == 'true'
         run: git push origin HEAD:main
+      # 这一步不能删：用默认 GITHUB_TOKEN 完成的 push 不会触发其它 workflow
+      # （GitHub 递归保护：由 GITHUB_TOKEN 触发的事件不会创建新的 workflow run，
+      #  workflow_dispatch / repository_dispatch 除外），所以必须显式 dispatch。
+      # 注意：build-apk.yml 的 prepare 门控是 `github.actor != 'github-actions[bot]'`，
+      # 它只覆盖 GITHUB_TOKEN 推送（actor=bot）的情形；将来若改用 PAT 推送，actor 会变成
+      # PAT 持有者而不是 bot，那时 push 与这里的 dispatch 会各起一次 run —— 由
+      # build-apk.yml 的 concurrency（同一 ref、cancel-in-progress）兜住重复。
       - name: Trigger build packages
         if: steps.commit.outputs.changed == 'true'
         env:

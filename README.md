@@ -29,7 +29,7 @@ curl -fsSL "https://raw.githubusercontent.com/498777/luci-app-honk/main/Auto_Ins
 
 默认安装 `honk` + `luci-app-honk` + 中文语言包；`sh -s honk` 只装主程序。
 
-脚本行为：非 apk 体系直接退出；未发现内核 BTF 时给出提示；从 Release 拉取 `SHA256SUMS` 并对每个下载的 apk 做 sha256 校验（Release 未附校验文件时跳过并提示）；包内若仍声明 `vmlinux-btf`，会拆包剔除后再安装；安装完成后自动刷新 LuCI 缓存。其余参数（`--repo`、`--no-proxy`、`--gh-proxy`、`--keep-dep` 等）见脚本 `-h`。
+脚本行为：非 apk 体系直接退出；未发现内核 BTF 时给出提示；从 Release 拉取 `SHA256SUMS` 并对每个下载的 apk 做 sha256 校验（Release 未附校验文件时跳过并提示）；**不对下载的 apk 做任何改写**（`vmlinux-btf` 依赖由 CI 的 Makefile 断言保证，见 build-apk.yml 的 Assert 步骤）；安装完成后自动刷新 LuCI 缓存。其余参数（`--repo`、`--no-proxy`、`--gh-proxy`、`--force` 等）见脚本 `-h`。
 
 ### 手动安装与启用
 

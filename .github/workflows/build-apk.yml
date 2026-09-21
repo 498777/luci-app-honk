@@ -19,17 +19,32 @@ on:
   push:
     branches:
       - main
+  # PR 只做“能否编译/断言是否通过”的校验，release job 由 event 门控跳过（见 release）
+  pull_request:
+    branches:
+      - main
   schedule:
     - cron: '17 3 * * *'
 
+# 同一 ref 只允许一个构建/发布流程，避免并发 run 同时进出 release job 互删 Release 附件
+concurrency:
+  group: build-apk-honk-${{ github.ref }}
+  cancel-in-progress: true
+
+# 默认收敛到最小权限，需要写权限的 job 各自单独提升（见 build / release）
 permissions:
-  contents: write
-  actions: write
+  contents: read
 
 jobs:
   prepare:
     name: Prepare version
     runs-on: ubuntu-latest
+    # 用默认 GITHUB_TOKEN 做的 push 不会触发其它 workflow（GitHub 递归保护），
+    # 因此 update-honk.yml 里的 `gh workflow run` 是必需手段；这里的门控只用于
+    # 万一将来改用 PAT 推送时避免“push + workflow_dispatch”双跑。
+    if: github.event_name != 'push' || github.actor != 'github-actions[bot]'
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.meta.outputs.version }}
       release_tag: ${{ steps.meta.outputs.release_tag }}
@@ -40,6 +55,8 @@ jobs:
       should_build: ${{ steps.guard.outputs.should_build }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Generate version metadata
         id: meta
@@ -95,6 +112,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: prepare
     if: needs.prepare.outputs.should_build == 'true'
+    # contents: read 用于 checkout；actions: write 用于 upload-artifact
+    # （限制 permissions 后 artifact 上传需要该 scope，否则 403）
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix:
@@ -106,6 +128,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Build packages
         uses: sbwml/openwrt-gh-action-sdk@a5b2472e626ba279c75c77f82a4e5385303f9561 # go1.26
@@ -160,6 +184,8 @@ jobs:
           fi
 
       - name: Upload build artifacts
+        # PR（含 dependabot）run 的 token 是只读的，artifact 上传必然 403；PR 只验证能编译
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: apk-${{ matrix.short }}
@@ -173,7 +199,11 @@ jobs:
     needs:
       - prepare
       - build
-    if: needs.prepare.outputs.should_build == 'true'
+    # PR 只构建不发布；仅本 job 提升写权限（contents: 发 Release / actions: 清理 workflow run）
+    if: github.event_name != 'pull_request' && needs.prepare.outputs.should_build == 'true'
+    permissions:
+      contents: write
+      actions: write
     steps:
       - name: Download apk artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -250,7 +280,7 @@ jobs:
           fi
 
       - name: Delete old releases
-        uses: ophub/delete-releases-workflows@9c4138644d440d66f145e5ab03a98f03b5cbf2b0 # main
+        uses: ophub/delete-releases-workflows@9c4138644d440d66f145e5ab03a98f03b5cbf2b0 # main (2026-06-17；该 commit 无对应 tag，v0.1.0 更早)
         with:
           delete_releases: true
           releases_keep_latest: 2
@@ -261,8 +291,21 @@ jobs:
         continue-on-error: true
 
       - name: Cleanup old action artifacts
-        uses: c-hive/gha-remove-artifacts@62c2fbea931baa7dd4a6b73ea5a799984a818f61 # main
+        uses: c-hive/gha-remove-artifacts@62c2fbea931baa7dd4a6b73ea5a799984a818f61 # v1.8.0
         with:
           age: '2 days'
           skip-recent: 2
         continue-on-error: true
+
+  lint-po:
+    # po 与源码一致性：po 里的实体 msgid 必须能在 htdocs/ root/ 等源码中找到，
+    # 防止界面文案改了、po 里却留下永不被引用的死条目（脚本见 scripts/check-po.sh）
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check po consistency
+        run: sh scripts/check-po.sh .

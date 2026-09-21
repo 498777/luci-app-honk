@@ -16,9 +16,12 @@ HONK_NETNS_PATH="/run/netns/$HONK_NETNS_NAME"
 LOG_DIR="/var/log/honk"
 LOG_FILE="$LOG_DIR/honk.log"
 
-set_chmod_640() {
+# /etc/honk 下是配置文件（可能含节点/订阅凭据）：目录 750、文件 640。
+# 不能对目录也用 640 —— 目录缺执行位就无法进入/遍历，会直接把配置读坏。
+harden_conf_perms() {
     mkdir -p /etc/honk/config.d
-    chmod -R 640 /etc/honk/ 2>/dev/null || true
+    find /etc/honk -type d -exec chmod 750 {} \; 2>/dev/null || true
+    find /etc/honk -type f -exec chmod 640 {} \; 2>/dev/null || true
 }
 
 cleanup_netns() {
@@ -55,7 +58,7 @@ start_service() {
 
     config_get config_file "config" "config_file" "/etc/honk/config.dae"
 
-    set_chmod_640
+    harden_conf_perms
     cleanup_netns
 
     procd_open_instance "$CONF"
@@ -84,6 +87,6 @@ service_triggers() {
 }
 
 hot_reload() {
-    set_chmod_640
+    harden_conf_perms
     /etc/init.d/honk running && "$PROG" reload
 }

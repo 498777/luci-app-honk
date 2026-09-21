@@ -1,11 +1,9 @@
 #!/bin/sh
 
 REPO="${REPO:-498777/luci-app-honk}"
-STRIP_DEPS="vmlinux-btf"
 LANGS="zh-cn zh_Hans zh_cn"
 FORCE=0
 GH_PROXY="${GH_PROXY:-https://ghfast.top}"
-TMPDIR_WORK="${TMPDIR:-/tmp}/honk-install.$$"
 PLANFILE="/tmp/honk-plan.$$"
 DECIDED="/tmp/honk-decide.$$"
 PKGS=""
@@ -35,7 +33,7 @@ usage() {
   --force               版本相同时也强制重装
   --no-proxy            关闭 GitHub 加速，直连下载
   --gh-proxy [URL]      指定 GitHub 加速前缀（默认 https://ghfast.top；也可 export GH_PROXY=...）
-  --keep-dep            不剔除 vmlinux-btf 依赖，原样安装
+  --keep-dep            （已废弃，仅为兼容旧命令保留；不再拆包剔除依赖）
   -h, --help            显示本帮助
   <包名>...             指定要装的包，留空则装 honk + luci-app-honk + 中文语言包
                         （指定 luci-app-honk 时会自动补上 honk 与中文语言包）
@@ -69,7 +67,7 @@ while [ $# -gt 0 ]; do
         --no-proxy)    GH_PROXY=""; shift ;;
         --gh-proxy)    GH_PROXY="${2:-https://ghfast.top}"; shift 2 ;;
         --gh-proxy=*)  GH_PROXY="${1#--gh-proxy=}"; shift ;;
-        --keep-dep)    STRIP_DEPS=""; shift ;;
+        --keep-dep)    shift ;;   # 兼容旧命令行：vmlinux-btf 已由 CI 断言保证，无需安装时处理
         -h|--help)     usage ;;
         *)             PKGS="$PKGS $1"; shift ;;
     esac
@@ -200,64 +198,6 @@ add_i18n() {
     return 1
 }
 
-# --------------------------------------------- 拆包剔除依赖后重新打包
-strip_apk_dep() {
-    f="$1"
-    [ -n "$STRIP_DEPS" ] || return 0
-    [ -f "$f" ] || return 1
-
-    rm -rf "$TMPDIR_WORK"; mkdir -p "$TMPDIR_WORK" || return 1
-
-    gzip -dc "$f" > "$TMPDIR_WORK/all.tar" 2>/dev/null || { rm -rf "$TMPDIR_WORK"; return 1; }
-    tar -xOf "$TMPDIR_WORK/all.tar" .PKGINFO > "$TMPDIR_WORK/.PKGINFO" 2>/dev/null || {
-        rm -rf "$TMPDIR_WORK"; return 1; }
-
-    need=0
-    for d in $STRIP_DEPS; do
-        grep -q "^depend = ${d}\$" "$TMPDIR_WORK/.PKGINFO" && need=1
-    done
-    if [ "$need" -eq 0 ]; then
-        rm -rf "$TMPDIR_WORK"; return 0
-    fi
-    echo "  ⚙ 检测到依赖 $STRIP_DEPS，拆包剔除后重新打包 ..."
-
-    allsize=$(wc -c < "$TMPDIR_WORK/all.tar" | tr -d ' ')
-    off=""
-    if [ 10240 -lt "$allsize" ] &&
-       tail -c +10241 "$TMPDIR_WORK/all.tar" | tar -tf - >/dev/null 2>&1; then
-        off=10240
-    else
-        o=512
-        while [ "$o" -le 20480 ] && [ "$o" -lt "$allsize" ]; do
-            if tail -c +$((o + 1)) "$TMPDIR_WORK/all.tar" | tar -tf - >/dev/null 2>&1; then
-                off=$o; break
-            fi
-            o=$((o + 512))
-        done
-    fi
-    if [ -z "$off" ]; then
-        rm -rf "$TMPDIR_WORK"
-        echo "  ⚠ 无法定位数据段，跳过剔除"
-        return 1
-    fi
-
-    for d in $STRIP_DEPS; do
-        sed -i "/^depend = ${d}\$/d" "$TMPDIR_WORK/.PKGINFO"
-    done
-
-    ( cd "$TMPDIR_WORK" && tar -cf control.tar .PKGINFO ) || { rm -rf "$TMPDIR_WORK"; return 1; }
-    tail -c +$((off + 1)) "$TMPDIR_WORK/all.tar" > "$TMPDIR_WORK/data.tar" || {
-        rm -rf "$TMPDIR_WORK"; return 1; }
-
-    gzip -c "$TMPDIR_WORK/control.tar" > "$f.new" &&
-    gzip -c "$TMPDIR_WORK/data.tar"   >> "$f.new" &&
-    mv "$f.new" "$f" || { rm -f "$f.new"; rm -rf "$TMPDIR_WORK"; return 1; }
-
-    rm -rf "$TMPDIR_WORK"
-    ok "已剔除 $STRIP_DEPS"
-    return 0
-}
-
 # 从 apk 文件名解析包名：luci-app-honk-2.0.0-r1.apk -> luci-app-honk
 pkg_name_of() {
     b=$(basename "$1"); b=${b%.apk}
@@ -329,8 +269,6 @@ install_url() {
     curl -fsSL --max-time 300 --retry 2 -o "/tmp/$file" "$(gurl "$url")" || { echo "✗ 下载失败"; return 1; }
 
     verify_sha256 "/tmp/$file" || { rm -f "/tmp/$file"; return 1; }
-
-    strip_apk_dep "/tmp/$file"
 
     echo "  ⬇ 安装 $file"
     install_local_apk "/tmp/$file" || { rm -f "/tmp/$file"; return 1; }
