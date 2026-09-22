@@ -243,7 +243,7 @@ jobs:
           cd rel
           count=$(ls -1 ./*.apk 2>/dev/null | wc -l)
           [ "$count" -gt 0 ] || { echo "::error::rel/ 中没有 apk，无法生成校验文件"; exit 1; }
-          sha256sum ./*.apk > SHA256SUMS
+          for f in *.apk; do sha256sum "$f"; done > SHA256SUMS
           echo "=== SHA256SUMS ==="
           cat SHA256SUMS
 

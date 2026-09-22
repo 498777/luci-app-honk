@@ -15,7 +15,7 @@ CORE_UPDATED=0
 # 自愈：清理 /etc/apk/world 中遗留的裸路径条目。
 # 更早版本的脚本用 `apk add /tmp/xxx.apk` 装包，apk 会把这条文件路径原样写进 world，
 # 文件删除后每次 apk 操作都报 no such package。这里在开始前统一清除。
-# 说明：当前版本写入的是 "包名><身份哈希" 约束，由下面的 world_drop 按包名精确处理，
+# 说明：当前版本写入的是 "包名><身份哈希" 约束，由下面的 world_keep 只去掉会失效的身份哈希、保留包名，
 # 不在自愈段做无差别删除，以免误伤用户手工添加的 pin。
 if [ -f /etc/apk/world ] && grep -q '/tmp/' /etc/apk/world 2>/dev/null; then
     sed -i '/^\/.*\.apk$/d' /etc/apk/world
@@ -204,16 +204,23 @@ pkg_name_of() {
     printf '%s' "$b" | sed 's/-[0-9][0-9A-Za-z._+~-]*-r[0-9][0-9A-Za-z._+~-]*$//'
 }
 
-# 按包名清理 /etc/apk/world 中的约束条目。
-# apk add <file> 会把 "包名><身份哈希" 形式的约束写进 world（见 apk-add(8)：
-# "If a file is added, a constraint against the package identity hash will be add"），
-# .apk 文件删除后该约束即失效，后续任何 apk 操作都报 no such package。
-# 这里精确按包名删除，不用 --force-broken-world（后者会无差别删约束直到可求解）。
-world_drop() {
+# 把 apk 安装本地文件时写入的 "包名><身份哈希" 规范化为纯包名。
+# 背景：apk-add(8) —— "If a file is added, a constraint against the package identity
+# hash will be add"；.apk 文件删除后该约束即失效，后续 apk 操作都报 no such package。
+# 也不用 --force-broken-world（那会无差别删约束直到可求解，风险更大）。
+# 不能整行删除 —— 那一行是包在 /etc/apk/world（期望状态）里的成员身份，
+# 删掉后包会退出期望状态，其后任何一次 apk add 都会把它当作非期望状态收敛掉
+# （实测：装 dae 时把 honk、luci-app-honk、luci-i18n-honk-zh-cn 连同 honk 的
+#  独占依赖 ip-full/libbpf1/libelf1 一起 Purging）。只去掉会失效的身份哈希即可。
+world_keep() {
     n="$1"
     [ -n "$n" ] || return 0
     [ -f /etc/apk/world ] || return 0
-    sed -i "\|^${n}\([<>=~]\|\$\|@\)|d; \|^${n}><|d" /etc/apk/world 2>/dev/null || true
+    if grep -qxF "$n" /etc/apk/world 2>/dev/null; then
+        sed -i "\|^${n}><|d" /etc/apk/world 2>/dev/null || true
+    else
+        sed -i "\|^${n}><|s|^${n}><.*|${n}|" /etc/apk/world 2>/dev/null || true
+    fi
 }
 
 install_local_apk() {
@@ -221,16 +228,16 @@ install_local_apk() {
     [ -f "$f" ] || return 1
     n=$(pkg_name_of "$f")
 
-    # 安装前先清掉同名残留约束，避免失效的身份哈希约束让整个事务失败
-    world_drop "$n"
+    # 安装前先规范化同名残留约束，避免失效的身份哈希约束让整个事务失败
+    world_keep "$n"
 
     if ! apk add --allow-untrusted "$f"; then
         echo "  ✗ $(basename "$f") 安装失败，请看上面的 apk 报错"
         return 1
     fi
 
-    # 装完即清：apk 会把 "包名><身份哈希" 约束写进 world，留着下次会报 no such package
-    world_drop "$n"
+    # 装完即规范化：apk 会把 "包名><身份哈希" 约束写进 world，留着 hash 下次会报 no such package
+    world_keep "$n"
     ok "$(basename "$f") 安装完成"
     return 0
 }
@@ -244,6 +251,9 @@ verify_sha256() {
 
     want=""
     while read -r h n; do
+        # 兼容 sha256sum 清单里的 "./" 前缀与二进制模式的 "*" 前缀
+        n="${n#\*}"
+        n="${n#./}"
         [ "$n" = "$name" ] && { want="$h"; break; }
     done < "$SUMS"
 
@@ -345,6 +355,12 @@ while IFS='|' read -r u n; do
     oldv=$(apk_installed_ver "$n")
     if [ -n "$oldv" ] && [ "$(norm_ver "$oldv")" = "$(norm_ver "$newv")" ] && [ "$FORCE" -eq 0 ]; then
         echo "  · $n  $oldv == $newv  已是最新，跳过"
+        # 已安装却可能不在 /etc/apk/world（旧版本脚本曾整行删除 world 条目）：补登记回去。
+        # 否则该包已退出「期望状态」，之后任何一次 apk add 都会把它连带清除。
+        if [ -f /etc/apk/world ] && ! grep -qxF "$n" /etc/apk/world 2>/dev/null; then
+            echo "$n" >> /etc/apk/world
+            echo "    ↑ 该包此前不在 /etc/apk/world，已补登记"
+        fi
     else
         echo "  · $n  ${oldv:-未安装} → $newv"
         echo "$u|$n" >> "$DECIDED"
