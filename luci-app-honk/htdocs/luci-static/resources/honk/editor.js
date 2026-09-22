@@ -76,13 +76,16 @@ function resource(path) {
 	return '/luci-static/resources/' + path;
 }
 
-/* 样式注入目标：优先 #view 内部。
-   aurora 等主题的同文档路由只把 #view 之外的样式表视为"外来"，据此判定文档被污染
-   （router-aurora.js 的 sheets() 会 filter 掉 view.contains(t) 的节点），一旦判定污染就
-   放弃无刷新切换、退回整页加载。把编辑器的样式表放进视图内既不触发该判定，
-   又会随视图切换一起被释放。 */
-function styleHost() {
-	return document.getElementById('view') || document.body || document.head;
+/* 样式注入目标：视图节点内部（传入 renderWidget 返回的 node）。
+   - 不能挂 document.head：aurora 等主题的同文档路由只把 #view 之外的样式表视为"外来"
+     （router-aurora.js 的 sheets() 会 filter 掉 view.contains(t) 的节点），一旦判定文档
+     被污染就放弃无刷新切换、退回整页加载。
+   - 也不能挂 #view 直属：LuCI 是在 renderWidget 里同步构建节点、随后才用
+     dom.content(#view, node) 整体替换 #view 的内容，而我们的注入发生在 render 之后的
+     第一个微任务里、早于那次替换，会被连带清掉（症状：编辑器塌陷、只剩一列 gutter）。
+   挂进视图节点内部则随该节点一起进入 #view：既在 #view 之内、又随视图切换被释放。 */
+function styleHost(node) {
+	return node || document.getElementById('view') || document.body || document.head;
 }
 
 /* 加载单个脚本，失败自动重试：uhttpd 偶发丢连接会让 onerror 触发，
@@ -116,11 +119,11 @@ function loadScript(url) {
 
 /* 确保编辑器的样式表就位。样式随视图切换会被释放（见 styleHost），
    所以每次调用都补齐；已存在的不重复注入、也不重复等待。 */
-function ensureCmStyles() {
+function ensureCmStyles(node) {
 	var pending = [];
 
 	if (!document.getElementById('honk-cm-style'))
-		styleHost().appendChild(E('style', { id: 'honk-cm-style' }, CM_STYLE));
+		styleHost(node).appendChild(E('style', { id: 'honk-cm-style' }, CM_STYLE));
 
 	CM_ASSETS.forEach(function(asset) {
 		if (!asset.css)
@@ -139,7 +142,7 @@ function ensureCmStyles() {
 
 			el.onload = function() { if (!done) { done = true; resolve(); } };
 			el.onerror = function() { if (!done) { done = true; resolve(); } };
-			styleHost().appendChild(el);
+			styleHost(node).appendChild(el);
 
 			/* 兜底：极端情况 onload/onerror 都不触发，3 秒后放行（最坏只是没主题色） */
 			window.setTimeout(function() { if (!done) { done = true; resolve(); } }, 3000);
@@ -149,9 +152,9 @@ function ensureCmStyles() {
 	return Promise.all(pending);
 }
 
-function loadCodeMirror() {
+function loadCodeMirror(node) {
 	/* 样式每次都要补齐（可能随上一个视图被释放），JS 只加载一次 */
-	var styles = ensureCmStyles();
+	var styles = ensureCmStyles(node);
 
 	if (cmReady)
 		return Promise.all([ cmReady, styles ]);
@@ -238,10 +241,10 @@ function refreshWhenVisible(cm) {
 	})();
 }
 
-function attachCodeMirror(textarea) {
+function attachCodeMirror(textarea, node) {
 	/* 包一层 Promise：loadCodeMirror() 的同步异常（例如环境缺 L.resource）也能被 catch 到 */
 	return Promise.resolve().then(function() {
-		return loadCodeMirror();
+		return loadCodeMirror(node);
 	}).then(function() {
 		var cm = CodeMirror.fromTextArea(textarea, {
 			mode: 'dae',
@@ -298,7 +301,7 @@ var CodeMirrorValue = form.TextValue.extend({
 		var textarea = findTextarea(node);
 
 		if (textarea) {
-			attachCodeMirror(textarea).then(function(cm) {
+			attachCodeMirror(textarea, node).then(function(cm) {
 				self.editor = cm;
 			}).catch(function(err) {
 				ui.addNotification(null, E('p', _('Editor unavailable, plain textarea is used: %s').format(err.message)), 'error');
