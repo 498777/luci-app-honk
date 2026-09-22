@@ -122,8 +122,13 @@ function loadScript(url) {
 function ensureCmStyles(node) {
 	var pending = [];
 
-	if (!document.getElementById('honk-cm-style'))
-		styleHost(node).appendChild(E('style', { id: 'honk-cm-style' }, CM_STYLE));
+	var host = styleHost(node);
+
+	/* 去重必须限定在"本视图节点内"：主题的同文档路由是「先渲染新视图、后释放旧视图」，
+	   用文档级查询会在新旧共存的窗口期命中旧视图那张即将被释放的样式表，于是新视图
+	   不再注入 —— 症状即"切 Tab 后样式丢失、再点一次才恢复"。 */
+	if (!host.querySelector('#honk-cm-style'))
+		host.appendChild(E('style', { id: 'honk-cm-style' }, CM_STYLE));
 
 	CM_ASSETS.forEach(function(asset) {
 		if (!asset.css)
@@ -133,7 +138,7 @@ function ensureCmStyles(node) {
 
 		/* 主题/基础样式也纳入等待：否则编辑器可能先于 CSS 渲染，
 		   偶发「没吃到主题色」，刷新后才正常（缓存命中） */
-		if (document.querySelector('link[href="' + url + '"]'))
+		if (host.querySelector('link[href="' + url + '"]'))
 			return;
 
 		pending.push(new Promise(function(resolve) {
@@ -142,7 +147,7 @@ function ensureCmStyles(node) {
 
 			el.onload = function() { if (!done) { done = true; resolve(); } };
 			el.onerror = function() { if (!done) { done = true; resolve(); } };
-			styleHost(node).appendChild(el);
+			host.appendChild(el);
 
 			/* 兜底：极端情况 onload/onerror 都不触发，3 秒后放行（最坏只是没主题色） */
 			window.setTimeout(function() { if (!done) { done = true; resolve(); } }, 3000);
