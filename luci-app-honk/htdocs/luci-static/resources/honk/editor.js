@@ -76,6 +76,15 @@ function resource(path) {
 	return '/luci-static/resources/' + path;
 }
 
+/* 样式注入目标：优先 #view 内部。
+   aurora 等主题的同文档路由只把 #view 之外的样式表视为"外来"，据此判定文档被污染
+   （router-aurora.js 的 sheets() 会 filter 掉 view.contains(t) 的节点），一旦判定污染就
+   放弃无刷新切换、退回整页加载。把编辑器的样式表放进视图内既不触发该判定，
+   又会随视图切换一起被释放。 */
+function styleHost() {
+	return document.getElementById('view') || document.body || document.head;
+}
+
 /* 加载单个脚本，失败自动重试：uhttpd 偶发丢连接会让 onerror 触发，
    进而 loadCodeMirror reject、编辑器退回普通文本框，重试可吞掉这类瞬时错误 */
 function loadScript(url) {
@@ -105,38 +114,55 @@ function loadScript(url) {
 	});
 }
 
-function loadCodeMirror() {
-	if (cmReady)
-		return cmReady;
-
+/* 确保编辑器的样式表就位。样式随视图切换会被释放（见 styleHost），
+   所以每次调用都补齐；已存在的不重复注入、也不重复等待。 */
+function ensureCmStyles() {
 	var pending = [];
 
 	if (!document.getElementById('honk-cm-style'))
-		document.head.appendChild(E('style', { id: 'honk-cm-style' }, CM_STYLE));
+		styleHost().appendChild(E('style', { id: 'honk-cm-style' }, CM_STYLE));
 
 	CM_ASSETS.forEach(function(asset) {
-		var url = resource(asset.css || asset.js);
-
-		if (asset.css) {
-			/* 主题/基础样式也纳入等待：否则编辑器可能先于 CSS 渲染，
-			   偶发「没吃到主题色」，刷新后才正常（缓存命中） */
-			if (document.querySelector('link[href="' + url + '"]'))
-				return;
-
-			pending.push(new Promise(function(resolve) {
-				var el = E('link', { rel: 'stylesheet', href: url });
-				var done = false;
-
-				el.onload = function() { if (!done) { done = true; resolve(); } };
-				el.onerror = function() { if (!done) { done = true; resolve(); } };
-				document.head.appendChild(el);
-
-				/* 兜底：极端情况 onload/onerror 都不触发，3 秒后放行（最坏只是没主题色） */
-				window.setTimeout(function() { if (!done) { done = true; resolve(); } }, 3000);
-			}));
-
+		if (!asset.css)
 			return;
-		}
+
+		var url = resource(asset.css);
+
+		/* 主题/基础样式也纳入等待：否则编辑器可能先于 CSS 渲染，
+		   偶发「没吃到主题色」，刷新后才正常（缓存命中） */
+		if (document.querySelector('link[href="' + url + '"]'))
+			return;
+
+		pending.push(new Promise(function(resolve) {
+			var el = E('link', { rel: 'stylesheet', href: url });
+			var done = false;
+
+			el.onload = function() { if (!done) { done = true; resolve(); } };
+			el.onerror = function() { if (!done) { done = true; resolve(); } };
+			styleHost().appendChild(el);
+
+			/* 兜底：极端情况 onload/onerror 都不触发，3 秒后放行（最坏只是没主题色） */
+			window.setTimeout(function() { if (!done) { done = true; resolve(); } }, 3000);
+		}));
+	});
+
+	return Promise.all(pending);
+}
+
+function loadCodeMirror() {
+	/* 样式每次都要补齐（可能随上一个视图被释放），JS 只加载一次 */
+	var styles = ensureCmStyles();
+
+	if (cmReady)
+		return Promise.all([ cmReady, styles ]);
+
+	var pending = [];
+
+	CM_ASSETS.forEach(function(asset) {
+		if (asset.css)
+			return;
+
+		var url = resource(asset.js);
 
 		if (document.querySelector('script[src="' + url + '"]'))
 			return;
@@ -153,8 +179,9 @@ function loadCodeMirror() {
 		throw err;
 	});
 
-	return cmReady;
+	return Promise.all([ cmReady, styles ]);
 }
+
 
 /* 与 Lua 版 Format Code 完全相同的规则 */
 function formatValue(content) {
