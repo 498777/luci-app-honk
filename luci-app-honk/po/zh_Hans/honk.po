@@ -107,3 +107,24 @@ msgstr "服务重载成功"
 
 msgid "Reload failed: %s"
 msgstr "重载失败：%s"
+
+msgid "API & Web UI"
+msgstr "API 与 Web UI"
+
+msgid "API Configuration"
+msgstr "API 配置"
+
+msgid "Configure the native API listener and the embedded Web UI. Saving requires a service restart to take effect."
+msgstr "配置原生 API 监听与内嵌 Web UI。保存后需重启服务方可生效。"
+
+msgid "Restart Now"
+msgstr "立即重启"
+
+msgid "Restart Service"
+msgstr "重启服务"
+
+msgid "Restart failed: %s"
+msgstr "重启失败：%s"
+
+msgid "Service restarted successfully"
+msgstr "服务重启成功"

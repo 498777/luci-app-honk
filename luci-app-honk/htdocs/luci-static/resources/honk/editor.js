@@ -23,6 +23,9 @@ var PATHS = {
 	dns: '/etc/honk/config.d/dns.dae',
 	node: '/etc/honk/config.d/node.dae',
 	route: '/etc/honk/config.d/route.dae',
+	/* native_api 所在文件。它的字段（listen/secret/ui/config_write 等）全部不支持热改，
+	   改动必须重启才生效，所以对应视图把服务动作设为 restart 而不是 hot_reload。 */
+	api: '/etc/honk/config.d/api.dae',
 	log: '/var/log/honk/honk.log'
 };
 
@@ -454,29 +457,32 @@ function editorPage(opts) {
 						E('div', { style: 'margin-bottom:4px' }, formatBtn),
 						editorField.firstChild);
 
-				/* Reload：标签「重载服务」+ 按钮「立即重载」，不依赖表单 Save */
+				/* 服务动作：默认「重载服务 → 立即重载」。可按页定制 —— native_api 所在文件
+				   的改动会被 SIGHUP 忽略（honk 只保留当前 listener 与配置代次，不报错），
+				   对应视图必须传 reloadAction:'restart'，否则用户会以为保存后已经生效。 */
+				var serviceAction = opts.reloadAction || 'hot_reload';
 				var reloadBtn = E('button', {
 					'class': 'cbi-button cbi-button-action',
 					'type': 'button',
 					'click': function() {
 						/* 不能用 L.resolveDefault(..., null) 包住：它会把 rejection 吞成 null，
-						   下面的 .catch 永远进不去，重载失败也不会有任何提示 */
-						return fs.exec_direct(INITD, [ 'hot_reload' ]).then(function() {
-							ui.addNotification(null, E('p', _('Service reloaded successfully')), 'info');
+						   下面的 .catch 永远进不去，失败也不会有任何提示 */
+						return fs.exec_direct(INITD, [ serviceAction ]).then(function() {
+							ui.addNotification(null, E('p', _(opts.reloadOk || 'Service reloaded successfully')), 'info');
 						}).catch(function(err) {
-							ui.addNotification(null, E('p', _('Reload failed: %s').format(err && err.message ? err.message : err)), 'error');
+							ui.addNotification(null, E('p', _(opts.reloadFail || 'Reload failed: %s').format(err && err.message ? err.message : err)), 'error');
 						});
 					}
-				}, _('Reload Now'));
+				}, _(opts.reloadNowLabel || 'Reload Now'));
 
-				/* 单卡片：启动服务 → 重载服务 → 编辑器 */
+				/* 单卡片：启动服务 → 重载/重启服务 → 编辑器 */
 				var card = E('div', { 'class': 'cbi-section' });
 
 				if (enabledValue)
 					card.appendChild(enabledValue);
 
 				card.appendChild(E('div', { 'class': 'cbi-value' }, [
-					E('label', { 'class': 'cbi-value-title' }, _('Reload Service')),
+					E('label', { 'class': 'cbi-value-title' }, _(opts.reloadLabel || 'Reload Service')),
 					E('div', { 'class': 'cbi-value-field' }, reloadBtn)
 				]));
 

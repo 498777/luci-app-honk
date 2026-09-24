@@ -54,5 +54,13 @@
 			"type": "view",
 			"path": "honk/log"
 		}
+	},
+	"admin/services/honk/api": {
+		"title": "API & Web UI",
+		"order": 60,
+		"action": {
+			"type": "view",
+			"path": "honk/api"
+		}
 	}
 }
