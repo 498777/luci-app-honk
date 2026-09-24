@@ -409,97 +409,123 @@ function editorPage(opts) {
 				this.formMap = m;
 				this.editorOption = o;
 
-				/* 收集顶层 section（TypedSection=已启用 / NamedSection=编辑器） */
-				var sections = [];
-				for (var i = 0; i < node.children.length; i++) {
-					var el = node.children[i];
-					if (el.classList && el.classList.contains('cbi-section'))
-						sections.push(el);
-				}
+				/* 状态卡片只建一次并复用：statusCard() 内部会 poll.add(refresh, 3)，
+				   每次重绘都重建会让轮询不断叠加。 */
+				var statusEl = opts.uciSection ? statusCard() : null;
 
-				var enabledValue = null, editorSection = null;
-				if (opts.uciSection && sections.length >= 2) {
-					enabledValue = sections[0].querySelector('.cbi-value');
-					editorSection = sections[1];
-				}
-				else if (sections.length >= 1) {
-					editorSection = sections[0];
-				}
+				/* 把表单改成「单卡片」布局。做成函数是因为它必须可重放 ——
+				   LuCI 的 Map.save() 与 Map.reset() 最后都调用 renderContents()，
+				   而 renderContents() 执行 dom.content(mapEl, null) 清空重建 cbi-map，
+				   我们在 render() 里注入的东西全在 mapEl 内部，会被一并清掉；
+				   而 view.render() 不会重跑 —— 于是「运行状态 / 重载服务 / 格式化代码」
+				   在保存后永久消失（编辑器由 renderWidget 重建，所以还在）。
+				   每次重绘后重放本函数即可恢复。 */
+				var applyLayout = function() {
+					/* 收集顶层 section（TypedSection=已启用 / NamedSection=编辑器） */
+					var sections = [];
+					for (var i = 0; i < node.children.length; i++) {
+						var el = node.children[i];
+						if (el.classList && el.classList.contains('cbi-section'))
+							sections.push(el);
+					}
 
-				var editorValue = editorSection ? editorSection.querySelector('.cbi-value') : null;
-				var editorField = editorValue ? editorValue.querySelector('.cbi-value-field') : null;
+					var enabledValue = null, editorSection = null;
+					if (opts.uciSection && sections.length >= 2) {
+						enabledValue = sections[0].querySelector('.cbi-value');
+						editorSection = sections[1];
+					}
+					else if (sections.length >= 1) {
+						editorSection = sections[0];
+					}
 
-				/* Format Code：与编辑器标题同一行、靠右 */
-				var formatBtn = E('button', {
-					'class': 'cbi-button cbi-button-apply',
-					'type': 'button',
-					'click': function() {
-						var cm = o.editor;
-						if (cm) {
-							cm.operation(function() {
-								var cur = cm.getCursor();
-								cm.setValue(formatValue(cm.getValue()));
-								for (var k = 0; k < cm.lineCount(); k++)
-									cm.indentLine(k, 'smart');
-								cm.setCursor(cur);
+					var editorValue = editorSection ? editorSection.querySelector('.cbi-value') : null;
+					var editorField = editorValue ? editorValue.querySelector('.cbi-value-field') : null;
+
+					/* Format Code：与编辑器标题同一行、靠右 */
+					var formatBtn = E('button', {
+						'class': 'cbi-button cbi-button-apply',
+						'type': 'button',
+						'click': function() {
+							var cm = o.editor;
+							if (cm) {
+								cm.operation(function() {
+									var cur = cm.getCursor();
+									cm.setValue(formatValue(cm.getValue()));
+									for (var k = 0; k < cm.lineCount(); k++)
+										cm.indentLine(k, 'smart');
+									cm.setCursor(cur);
+								});
+							}
+							else {
+								var ta = findTextarea(editorValue);
+								if (ta)
+									ta.value = formatValue(ta.value);
+							}
+						}
+					}, _('Format Code'));
+
+					if (editorField)
+						editorField.insertBefore(
+							E('div', { style: 'margin-bottom:4px' }, formatBtn),
+							editorField.firstChild);
+
+					/* 服务动作：默认「重载服务 → 立即重载」。可按页定制 —— native_api 所在文件
+					   的改动会被 SIGHUP 忽略（honk 只保留当前 listener 与配置代次，不报错），
+					   对应视图必须传 reloadAction:'restart'，否则用户会以为保存后已经生效。 */
+					var serviceAction = opts.reloadAction || 'hot_reload';
+					var reloadBtn = E('button', {
+						'class': 'cbi-button cbi-button-action',
+						'type': 'button',
+						'click': function() {
+							/* 不能用 L.resolveDefault(..., null) 包住：它会把 rejection 吞成 null，
+							   下面的 .catch 永远进不去，失败也不会有任何提示 */
+							return fs.exec_direct(INITD, [ serviceAction ]).then(function() {
+								ui.addNotification(null, E('p', _(opts.reloadOk || 'Service reloaded successfully')), 'info');
+							}).catch(function(err) {
+								ui.addNotification(null, E('p', _(opts.reloadFail || 'Reload failed: %s').format(err && err.message ? err.message : err)), 'error');
 							});
 						}
-						else {
-							var ta = findTextarea(editorValue);
-							if (ta)
-								ta.value = formatValue(ta.value);
-						}
-					}
-				}, _('Format Code'));
+					}, _(opts.reloadNowLabel || 'Reload Now'));
 
-				if (editorField)
-					editorField.insertBefore(
-						E('div', { style: 'margin-bottom:4px' }, formatBtn),
-						editorField.firstChild);
+					/* 单卡片：启动服务 → 重载/重启服务 → 编辑器 */
+					var card = E('div', { 'class': 'cbi-section' });
 
-				/* 服务动作：默认「重载服务 → 立即重载」。可按页定制 —— native_api 所在文件
-				   的改动会被 SIGHUP 忽略（honk 只保留当前 listener 与配置代次，不报错），
-				   对应视图必须传 reloadAction:'restart'，否则用户会以为保存后已经生效。 */
-				var serviceAction = opts.reloadAction || 'hot_reload';
-				var reloadBtn = E('button', {
-					'class': 'cbi-button cbi-button-action',
-					'type': 'button',
-					'click': function() {
-						/* 不能用 L.resolveDefault(..., null) 包住：它会把 rejection 吞成 null，
-						   下面的 .catch 永远进不去，失败也不会有任何提示 */
-						return fs.exec_direct(INITD, [ serviceAction ]).then(function() {
-							ui.addNotification(null, E('p', _(opts.reloadOk || 'Service reloaded successfully')), 'info');
-						}).catch(function(err) {
-							ui.addNotification(null, E('p', _(opts.reloadFail || 'Reload failed: %s').format(err && err.message ? err.message : err)), 'error');
-						});
-					}
-				}, _(opts.reloadNowLabel || 'Reload Now'));
+					if (enabledValue)
+						card.appendChild(enabledValue);
 
-				/* 单卡片：启动服务 → 重载/重启服务 → 编辑器 */
-				var card = E('div', { 'class': 'cbi-section' });
+					card.appendChild(E('div', { 'class': 'cbi-value' }, [
+						E('label', { 'class': 'cbi-value-title' }, _(opts.reloadLabel || 'Reload Service')),
+						E('div', { 'class': 'cbi-value-field' }, reloadBtn)
+					]));
 
-				if (enabledValue)
-					card.appendChild(enabledValue);
+					if (editorValue)
+						card.appendChild(editorValue);
 
-				card.appendChild(E('div', { 'class': 'cbi-value' }, [
-					E('label', { 'class': 'cbi-value-title' }, _(opts.reloadLabel || 'Reload Service')),
-					E('div', { 'class': 'cbi-value-field' }, reloadBtn)
-				]));
+					sections.forEach(function(s) {
+						if (s.parentNode)
+							s.parentNode.removeChild(s);
+					});
 
-				if (editorValue)
-					card.appendChild(editorValue);
+					node.appendChild(card);
 
-				sections.forEach(function(s) {
-					if (s.parentNode)
-						s.parentNode.removeChild(s);
-				});
+					/* 运行状态卡片置于「全局设置」标题（及描述）下方、配置卡片上方 */
+					if (opts.uciSection)
+						node.insertBefore(statusEl, card);
 
-				node.appendChild(card);
+				};
 
-				/* 运行状态卡片置于「全局设置」标题（及描述）下方、配置卡片上方 */
-				if (opts.uciSection)
-					node.insertBefore(statusCard(), card);
+				/* 包装 renderContents：原生重绘（清空 mapEl）之后重放布局。
+				   save() 里是 then(this.renderContents.bind(this))，调用时才取属性，
+				   所以此处覆盖能被后续 save / reset 命中。 */
+				var origRenderContents = m.renderContents.bind(m);
+				m.renderContents = function() {
+					return origRenderContents.apply(null, arguments).then(function(el) {
+						applyLayout();
+						return el;
+					});
+				};
 
+				applyLayout();
 				return E('div', { 'class': 'honk-cm' }, node);
 			}, this));
 		},
