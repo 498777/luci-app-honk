@@ -47,7 +47,7 @@ uci set honk.config.enabled=1 && uci commit honk
 
 ## LuCI 界面
 
-安装后 **服务 → HONK** 下为五个页签（JS 客户端渲染，`htdocs/luci-static/resources/view/honk/*.js`）。顶部是运行状态卡片（含重载按钮），每页带 CodeMirror 编辑器（`.dae` 语法高亮、代码折叠、括号匹配与自动补全、当前行高亮、格式化代码），底部为 Save / Save & Apply（保存并 `hot_reload`）/ Reset 三个按钮：
+安装后 **服务 → HONK** 下为六个页签（JS 客户端渲染，`htdocs/luci-static/resources/view/honk/*.js`）。顶部是运行状态卡片（每 3 秒刷新），下面一张卡片里依次是 uci 启用开关、服务动作按钮、代码编辑器。每页都带 CodeMirror（`.dae` 语法高亮、代码折叠、括号匹配与自动补全、当前行高亮、格式化代码），底部为 Save / Save & Apply / Reset 三个按钮：
 
 | 页签 | 编辑对象 |
 | --- | --- |
@@ -56,8 +56,15 @@ uci set honk.config.enabled=1 && uci commit honk
 | Node Settings | `/etc/honk/config.d/node.dae`（节点 / 订阅 / 分组） |
 | Routing Settings | `/etc/honk/config.d/route.dae` |
 | Logs | `/var/log/honk/honk.log`（实时日志，末尾 1000 行） |
+| API & Web UI | `/etc/honk/config.d/api.dae`（`native_api` 与内嵌 doona UI） |
 
-文件写入与 `hot_reload` 的执行权限由 `root/usr/share/rpcd/acl.d/luci-app-honk.json` 精确声明；运行状态由 `root/usr/libexec/honk-status` 提供（只放开该脚本的执行权限，不放开 `/proc`）。
+**保存与生效是刻意的两步**，不是一次操作：
+
+- Save / Save & Apply **只写盘**，并在提示里告诉你去点哪个按钮，**不会自动重载**。honk 文档写明「所有生效字段都要求重启；SIGHUP 拒绝其变更并保留当前 listener 与配置代次」—— 自动重载只会让用户以为已经生效。
+- 真正生效由配置卡片里的按钮触发：默认「重载服务 → 立即重载」（`hot_reload`）；**API & Web UI 页是「重启服务 → 立即重启」**（`restart`），因为该文件里的 `native_api` 字段不支持热改。按钮名由视图传入的 `reloadAction` / `reloadLabel` / `reloadNowLabel` 定制。
+- Reset 只把编辑器内容重新读回磁盘版本，不写盘。
+
+文件写入与服务动作的执行权限由 `root/usr/share/rpcd/acl.d/luci-app-honk.json` 精确声明；运行状态由 `root/usr/libexec/honk-status` 提供（只放开该脚本的执行权限，不放开 `/proc`）。
 
 默认 `node.dae` 是占位模板，直接启用会因 honk 启动校验失败而无法运行；需先在 Node 页签填入真实节点 / 订阅。
 
@@ -85,7 +92,10 @@ Auto_Install_Script.sh             一键安装（apk）
 honk/                              核心包（下载预编译 honk-core + init / 配置）
 luci-app-honk/                     LuCI 界面（htdocs 视图 + menu.d/acl.d + libexec 状态脚本 + po）
 scripts/update_honk_version.sh     上游版本 / 校验和同步
-.github/workflows/                 build-apk（编译发布）/ update-honk（每日同步上游）
+scripts/check-po.sh                po 与源码一致性检查（CI 的 lint-po 调用）
+.github/workflows/build-apk.yml                 取上游 release 二进制 + 编译 apk 并发布 Release
+.github/workflows/update-honk.yml               每日检查上游 honk release 并自动 bump 版本
+.github/workflows/build-honk-native-api.yml     临时：编译 fork 的 native-api 分支（仅出 artifact）
 ```
 
 日志：`/var/log/honk/honk.log`（init 每次启动轮转，保留 3 代）。
