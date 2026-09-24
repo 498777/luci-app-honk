@@ -126,6 +126,32 @@ jobs:
           echo "FEATURES=$features" >> "$GITHUB_ENV"
           echo "本次 features: $features"
 
+      # 【上游 bug 的临时绕过 —— 修好后应删掉本步骤】
+      # crates/honk-core/src/state.rs 的 reset_corrupt() 用了
+      #   nix::fcntl::renameat2(..., nix::fcntl::RenameFlags::RENAME_NOREPLACE)
+      # 而这两个 item 在 nix 里被 #[cfg(all(target_os = "linux", target_env = "gnu"))] 门控
+      # （见 nix-0.31.3/src/fcntl.rs:474），musl 目标下不存在 → 编译报
+      #   E0425 cannot find function `renameat2` / E0433 cannot find `RenameFlags`
+      # 上游 ci.yml 的 musl lane 用的是 clash-api,ebpf,rprx,mimalloc（不含 native-api），
+      # 所以他们的绿灯覆盖不到这条路径。
+      #
+      # 降级为 renameat 在该处语义基本等价：CORRUPT 是否已存在，前面已用 fstatat 检查并
+      # 提前 return Ok(None)（state.rs:335-347），RENAME_NOREPLACE 主要防的就是那个情况；
+      # 唯一失去保护的是 honk.db.corrupt-wal（无预检查），覆盖它的后果是"更新损坏副本"。
+      - name: Patch upstream musl build break (temporary)
+        shell: bash
+        run: |
+          set -euo pipefail
+          f=crates/honk-core/src/state.rs
+          if grep -q 'nix::fcntl::renameat2' "$f"; then
+            sed -i 's/nix::fcntl::renameat2(/nix::fcntl::renameat(/' "$f"
+            sed -i '/nix::fcntl::RenameFlags::RENAME_NOREPLACE,/d' "$f"
+            echo "已打补丁：renameat2 -> renameat"
+            grep -n 'renameat' "$f" || true
+          else
+            echo "未找到 renameat2 —— 上游可能已修复，跳过补丁"
+          fi
+
       - name: Build honk-core (cross via zig wrappers)
         shell: bash
         run: |
