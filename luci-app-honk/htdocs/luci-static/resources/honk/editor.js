@@ -514,7 +514,10 @@ function editorPage(opts) {
 			   （honk 文档："所有生效字段都要求重启；SIGHUP 拒绝其变更并保留当前 listener
 			   与配置代次"），自动触发只会让用户以为已经生效。 */
 			return this.handleSave(ev).then(function() {
-				ui.addNotification(null, E('p', _('Configuration saved. Use "Reload Now" to apply it.')), 'info');
+				/* 提示里的按钮名随页面变化：API 页是「立即重启」，其余是「立即重载」 */
+				ui.addNotification(null, E('p',
+					_('Configuration saved. Use %s to apply it.').format(_(opts.reloadNowLabel || 'Reload Now'))),
+					'info');
 			});
 		},
 

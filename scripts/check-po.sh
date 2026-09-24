@@ -36,10 +36,13 @@ find "$root" -type f \
 # 2) 逐个 po 校验
 : > "$tmp_missing"
 for po in $(find "$root" -type f -name '*.po' -not -path '*/.git/*' | sort); do
-    awk -F'"' '
-        /^[[:space:]]*msgid[[:space:]]+"/ { if ($2 != "") print $2 }
-    ' "$po" \
+    # 取 msgid 正文：先贪婪截取本行首尾引号之间的全部内容，再按 po 的转义规则
+    # 还原（反斜杠+引号 -> 引号，双反斜杠 -> 单反斜杠）。不还原的话，含引号的
+    # 文案会与源码里的字面量对不上，被误判成死条目。
+    sed -n 's/^[[:space:]]*msgid[[:space:]]*"\(.*\)"[[:space:]]*$/\1/p' "$po" \
+    | sed 's/\\"/"/g; s/\\\\/\\/g' \
     | while IFS= read -r id; do
+        [ -n "$id" ] || continue
         if [ -f "$ignore" ] && grep -Fxq -- "$id" "$ignore"; then
             continue
         fi

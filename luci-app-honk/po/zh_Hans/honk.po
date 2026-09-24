@@ -96,8 +96,8 @@ msgstr "配置"
 msgid "Unable to read %s: %s"
 msgstr "无法读取 %s：%s"
 
-msgid "Configuration saved. Use \"Reload Now\" to apply it."
-msgstr "配置已保存，点「重载服务 → 立即重载」使其生效。"
+msgid "Configuration saved. Use %s to apply it."
+msgstr "配置已保存，点「%s」使其生效。"
 
 msgid "Editor unavailable, plain textarea is used: %s"
 msgstr "编辑器不可用，已退回普通文本框：%s"
