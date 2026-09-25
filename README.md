@@ -57,13 +57,18 @@ uci set honk.config.enabled=1 && uci commit honk
 | Routing Settings | `/etc/honk/config.d/route.dae`（编辑器） |
 | Logs | `/var/log/honk/honk.log`（实时日志，末尾 1000 行） |
 | API Settings | `/etc/honk/config.d/api.dae`（编辑器，`native_api` / `clash_api`） |
-| WebUI | native_api 面板入口：面板地址 + 打开按钮 + 配置与运行态 |
+| WebUI | 直接把 native_api 托管的面板嵌进页面（正常时页面上只有面板本身） |
 
-**WebUI 页为什么不做页内嵌入**：honk 对面板的静态响应强制 `X-Frame-Options: DENY`
-（`native_api/ui.rs` 的 `serve()` 统一加头，`embedded` 与本地目录两种模式都一样），浏览器会拒绝 iframe。
-因此该页只给出地址并在**新窗口**打开。它的数据来源分两处：服务总开关走 LuCI 的 uci 接口，
-`native_api` 的配置与运行态走 `/usr/libexec/honk-native-api-probe`
-（探测必须放在路由器侧 —— honk 的 `GET /api` 默认不发 CORS 头，浏览器跨源请求会被拦）。
+**WebUI 页**只做一件事：把 native_api 托管的面板嵌进页面。正常情况页面上**只有面板**，
+没有任何多余内容；只有**没法显示面板**时才出现一行提示（服务停用 / 无配置文件 /
+native_api 未启用 / `ui` 未配置 / 连不上 / 该二进制拒绝被内嵌）。
+
+⚠️ **能否内嵌取决于二进制版本**：honk 自 `ca465bcc0`（`fix(native-api): let dashboards embed the served UI`）
+起删掉了面板静态响应的 `X-Frame-Options: DENY`，源码注释写明是为让 LuCI 这类面板**跨端口**嵌入；
+更早的二进制仍会发该头，iframe 会被浏览器**静默拒绝**（JS 拿不到错误，`onload` 甚至可能照常触发）。
+因此这项判断由 `/usr/libexec/honk-native-api-probe` 在**路由器侧读响应头**完成 ——
+浏览器侧既跨源、又拿不到被拒的错误，只能服务端判。该脚本同时给出面板是否可达与监听地址，
+据此外推面板 URL（具体 IP 用它 / 通配监听用访问主机名 / loopback 用 127.0.0.1）。
 
 **保存与生效是刻意的两步**，不是一次操作：
 
