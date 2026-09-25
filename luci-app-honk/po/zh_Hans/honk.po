@@ -167,3 +167,6 @@ msgstr "探测输出无法解析"
 
 msgid "The configuration file has no effective native_api block — it is most likely commented out. Uncomment it and set a secret, then restart the service."
 msgstr "配置文件里没有生效的 native_api 块 —— 多半是整段被注释掉了。取消注释并填好 secret，然后重启服务。"
+
+msgid "The panel listens on loopback only, so a browser on another machine cannot reach it. Set listen to 0.0.0.0:9527 (or use the router itself)."
+msgstr "面板只监听 loopback，别的机器上的浏览器访问不到。请把 listen 改成 0.0.0.0:9527（或在路由器本机访问）。"

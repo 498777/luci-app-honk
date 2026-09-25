@@ -33,6 +33,12 @@ function isLoopback(host) {
 	return host === '::1' || host === '[::1]' || host.indexOf('127.') === 0;
 }
 
+function isLoopbackAddr(listen) {
+	var l = splitListen(listen);
+
+	return l ? isLoopback(l.host) : false;
+}
+
 function isWildcard(host) {
 	return host === '0.0.0.0' || host === '::' || host === '[::]';
 }
@@ -90,6 +96,12 @@ return view.extend({
 					L.url('admin/services/honk/api'), _('Open API Settings'));
 			else if (!probe.reachable)
 				blocked = hint(_('The panel is not reachable. native_api settings only take effect after a service restart.'));
+			/* ⚠️ probe 是在**路由器上**测的可达性：loopback 监听在它看来永远是通的，
+			   但 iframe 是由**浏览器**去加载的 —— 指向 127.0.0.1 只会连到浏览器自己那台机器。
+			   所以这里必须再判一次，否则页面会安静地渲染一个必然加载失败的 iframe。 */
+			else if (isLoopbackAddr(cfg.listen))
+				blocked = hint(_('The panel listens on loopback only, so a browser on another machine cannot reach it. Set listen to 0.0.0.0:9527 (or use the router itself).'),
+					L.url('admin/services/honk/api'), _('Open API Settings'));
 			else if (probe.framing === 'deny')
 				blocked = hint(_('This build refuses to be embedded (X-Frame-Options: DENY), so the frame would stay blank. Use a build from ca465bcc0 or later.'));
 
@@ -101,7 +113,9 @@ return view.extend({
 				'title': _('WebUI'),
 				'loading': 'eager',
 				'referrerpolicy': 'no-referrer',
-				'style': 'width:100%;height:78vh;min-height:420px;border:0;display:block;border-radius:4px'
+				/* 高度留出 LuCI 自身外壳（顶栏 + 页签条）的位置：
+				   否则整页会高于一屏、滚动后页签条被顶出视野，看起来像"面板把界面盖住了"。 */
+				'style': 'width:100%;height:calc(100vh - 230px);min-height:360px;border:0;display:block;border-radius:4px'
 			}));
 		}
 
