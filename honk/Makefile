@@ -4,7 +4,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=honk
 PKG_VERSION:=0.0.1_beta81
-PKG_RELEASE:=3
+PKG_RELEASE:=4
 
 HONK_RELEASE_TAG:=v0.0.1.beta.81
 
@@ -68,6 +68,8 @@ define Package/honk/install
 	$(INSTALL_CONF) $(CURDIR)/files/config.d/node.dae $(1)/etc/honk/config.d/node.dae
 	$(INSTALL_CONF) $(CURDIR)/files/config.d/route.dae $(1)/etc/honk/config.d/route.dae
 	$(INSTALL_CONF) $(CURDIR)/files/config.d/dns.dae $(1)/etc/honk/config.d/dns.dae
+	# native_api 配置示例（.example 后缀 ⇒ 不匹配 config.d/*.dae，不会被加载，仅作参照）
+	$(INSTALL_CONF) $(CURDIR)/files/config.d/api.dae.example $(1)/etc/honk/config.d/api.dae.example
 
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) $(CURDIR)/files/honk.config $(1)/etc/config/honk

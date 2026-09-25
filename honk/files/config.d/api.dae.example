@@ -1,0 +1,49 @@
+# api.dae.example —— native_api 配置示例
+#
+# ⚠️ 本文件名带 .example 后缀，**不匹配**主配置里的 `include { config.d/*.dae }`，
+#    所以它只是随包附带的参照，不会影响 honk 运行。
+#    要启用：复制成同目录下的 `api.dae`（或在 LuCI「服务 → HONK → API 设置」页里写入并保存）。
+#
+# 为什么 native_api 应当单独放一个 include：
+#   含监听凭据（secret）的源会被 honk 判为**只读**，且 native_api 的设置不允许经 API 修改，
+#   所以它必须独立成文件 —— 这样主配置 config.dae 才能保持「可被 doona 面板编辑」。
+#   doona 自己的提示也是这么说的：把 native_api 设置放在独立的 include 文件。
+#
+# ⚠️ 这些字段改了都**必须重启**服务才生效：honk 对 native_api 的 SIGHUP 是「忽略变更」而非报错。
+#
+# experimental {
+#     native_api {
+#         enabled: true
+#         listen: '127.0.0.1:9527'          # 只接受数字 IP:port（主机名与 ':9527' 简写都不行）；
+#                                           # 要从 LAN 访问改成 '0.0.0.0:9527'
+#         secret: 'REPLACE-WITH-A-RANDOM-TOKEN'
+#                                           # 非空 = token 模式。须为不含空白/逗号的可见 ASCII；
+#                                           # 短于 8 字节的值不会被脱敏，启动时会记提示
+#         ui: 'embedded'                    # 内嵌 doona（要求二进制带 native-ui feature）；
+#                                           # 空值 = 不托管面板；也可填含 index.html 的本地目录
+#         config_write: true                # 允许 doona 的 Configuration 页改写**其余**源文件；
+#                                           # 要求上面的 secret 非空（或用密码模式）
+#     }
+# }
+#
+# 认证模式三选一，都不满足时 listener 不会启动：
+#   ① 非空 secret                          → token 模式
+#   ② secret 为空 + password_auth: true    → 密码模式（首次访问时创建管理员）
+#   ③ secret 为空 + allow_anonymous_loopback: true
+#                                          → 仅 loopback、仅开发用
+#
+# 启用后的行为提醒：
+#   - 面板入口：LuCI「服务 → HONK → WebUI」页（直接内嵌），或直接访问
+#     http://<监听地址>:<端口>/ui/
+#   - **本文件会因为含 secret 而在 doona 面板里显示为「只读」**，这是 honk 的硬规则：
+#       writable = config_write && credentialed()
+#               && !source.contains_api_secret      ← 命中：块内有 secret 键
+#               && !正文里真的出现监听 secret 值     ← 命中
+#   - 想改本文件只能用 LuCI 的「API 设置」页或直接编辑磁盘，面板永远改不了它。
+#   - 反过来：别把 native_api / clash_api 放进主文件或其它 include ——
+#     那样会让那些文件也变成只读（判据是「experimental 下 native_api/clash_api 块内
+#     存在任意子块，或有名为 secret 的键」，**不只是 secret**）。
+#
+# 其它字段（record_flows / record_traffic / record_memory / record_logs / record_dns_log /
+# allowed_hosts / allow_origins / probe_allowed_cidrs / geosite_download_url / geoip_download_url …）
+# 见上游文档 doc/zh/reference/experimental.md 的 native_api 表。

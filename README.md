@@ -70,6 +70,23 @@ native_api 未启用 / `ui` 未配置 / 连不上 / 该二进制拒绝被内嵌�
 浏览器侧既跨源、又拿不到被拒的错误，只能服务端判。该脚本同时给出面板是否可达与监听地址，
 据此外推面板 URL（具体 IP 用它 / 通配监听用访问主机名 / loopback 用 127.0.0.1）。
 
+**让 doona 的面板内编辑可用**：需要 `config_write: true` + 非空 `secret`（或密码模式），否则所有配置源都是只读。
+随包附带 `/etc/honk/config.d/api.dae.example` —— 一份带注释的 `native_api` 示例。它带 `.example` 后缀，
+**不匹配**主配置里的 `include { config.d/*.dae }`，因此不会被加载，仅作参照；复制成同目录下的 `api.dae`
+（或在「API Settings」页写入）才生效。
+
+该文件一旦启用，会因为含 `secret` 而在 doona 面板里显示为**只读**——这是 honk 的硬规则：
+
+```
+writable = config_write && credentialed()
+        && !source.contains_api_secret        // 块内有 secret 键
+        && !正文里真的出现监听 secret 值
+```
+
+这正是它必须单独成一个 include 的原因（否则主文件也会被牵连成只读，
+连带面板的节点/分组管理失效）。反之亦然：**不要在其它 `.dae` 里写 `native_api` / `clash_api` 块** ——
+判据是「`experimental` 下这两个块内存在**任意子块**或名为 `secret` 的键」，不只是 `secret`。
+
 **保存与生效是刻意的两步**，不是一次操作：
 
 - Save / Save & Apply **只写盘**，并在提示里告诉你去点哪个按钮，**不会自动重载**。honk 文档写明「所有生效字段都要求重启；SIGHUP 拒绝其变更并保留当前 listener 与配置代次」—— 自动重载只会让用户以为已经生效。
