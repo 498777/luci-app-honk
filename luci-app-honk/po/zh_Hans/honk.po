@@ -164,3 +164,6 @@ msgstr "无法从原生 API 配置里确定面板地址。"
 
 msgid "unparsable probe output"
 msgstr "探测输出无法解析"
+
+msgid "The configuration file has no effective native_api block — it is most likely commented out. Uncomment it and set a secret, then restart the service."
+msgstr "配置文件里没有生效的 native_api 块 —— 多半是整段被注释掉了。取消注释并填好 secret，然后重启服务。"

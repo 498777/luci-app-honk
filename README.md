@@ -71,9 +71,8 @@ native_api 未启用 / `ui` 未配置 / 连不上 / 该二进制拒绝被内嵌�
 据此外推面板 URL（具体 IP 用它 / 通配监听用访问主机名 / loopback 用 127.0.0.1）。
 
 **让 doona 的面板内编辑可用**：需要 `config_write: true` + 非空 `secret`（或密码模式），否则所有配置源都是只读。
-随包附带 `/etc/honk/config.d/api.dae.example` —— 一份带注释的 `native_api` 示例。它带 `.example` 后缀，
-**不匹配**主配置里的 `include { config.d/*.dae }`，因此不会被加载，仅作参照；复制成同目录下的 `api.dae`
-（或在「API Settings」页写入）才生效。
+随包附带 `/etc/honk/config.d/api.dae` —— 一份精简的 `native_api` 配置参考（`enabled: false`，默认不启动监听）。
+它是 conffile，升级不会覆盖用户改动；启用时把 `enabled` 改为 `true`、填好 `secret`，再**重启服务**。
 
 该文件一旦启用，会因为含 `secret` 而在 doona 面板里显示为**只读**——这是 honk 的硬规则：
 

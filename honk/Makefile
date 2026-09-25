@@ -68,8 +68,8 @@ define Package/honk/install
 	$(INSTALL_CONF) $(CURDIR)/files/config.d/node.dae $(1)/etc/honk/config.d/node.dae
 	$(INSTALL_CONF) $(CURDIR)/files/config.d/route.dae $(1)/etc/honk/config.d/route.dae
 	$(INSTALL_CONF) $(CURDIR)/files/config.d/dns.dae $(1)/etc/honk/config.d/dns.dae
-	# native_api 配置示例（.example 后缀 ⇒ 不匹配 config.d/*.dae，不会被加载，仅作参照）
-	$(INSTALL_CONF) $(CURDIR)/files/config.d/api.dae.example $(1)/etc/honk/config.d/api.dae.example
+	# native_api 配置参考（随包附带，enabled: false 保持不启动；conffile ⇒ 升级不会覆盖用户改动）
+	$(INSTALL_CONF) $(CURDIR)/files/config.d/api.dae $(1)/etc/honk/config.d/api.dae
 
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) $(CURDIR)/files/honk.config $(1)/etc/config/honk

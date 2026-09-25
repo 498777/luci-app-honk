@@ -79,6 +79,9 @@ return view.extend({
 			else if (!cfg.present)
 				blocked = hint(_('No native API configuration file was found. Create one on the API Settings page.'),
 					L.url('admin/services/honk/api'), _('Open API Settings'));
+			else if (cfg.block_present !== true)
+				blocked = hint(_('The configuration file has no effective native_api block — it is most likely commented out. Uncomment it and set a secret, then restart the service.'),
+					L.url('admin/services/honk/api'), _('Open API Settings'));
 			else if (cfg.enabled !== true)
 				blocked = hint(_('The native API listener is disabled, so nothing is served.'),
 					L.url('admin/services/honk/api'), _('Open API Settings'));

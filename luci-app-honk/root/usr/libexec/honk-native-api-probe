@@ -15,28 +15,32 @@
 
 CFG=/etc/honk/config.d/api.dae
 
-# 取出 native_api 块（按花括号配平），避免误取 clash_api 里的同名字段（如 cache_file.enabled）
+# 取出 native_api 块（按花括号配平），避免误取 clash_api 里的同名字段（如 cache_file.enabled）。
+# 先剥掉注释：否则"整段被注释掉"的 native_api 也会被当成生效的块。
+# ⚠️ awk 变量名不能用 open/close —— 它们是 awk 的内建函数名，busybox awk 会直接报语法错误。
 native_block() {
 	[ -r "$CFG" ] || return 0
 
-	awk '
+	sed -e 's/^[[:space:]]*#.*$//' -e 's/[[:space:]]#.*$//' "$CFG" | awk '
 		!inside && $0 ~ /(^|[^A-Za-z_])native_api[[:space:]]*\{/ { inside = 1 }
 		inside {
-			open  = gsub(/\{/, "{")
-			close = gsub(/\}/, "}")
-			depth += open - close
+			n_open  = gsub(/\{/, "{")
+			n_close = gsub(/\}/, "}")
+			depth += n_open - n_close
 			print
 			if (depth <= 0) exit
 		}
-	' "$CFG"
+	'
 }
 
-# 从 native_api 块里取 <key>: <value>，去掉引号、行尾注释与空白
+# 从 native_api 块里取 <key>: <value>。
+# ⚠️ 去掉尾部空白必须在去引号**之前** —— 否则 `listen: '1.2.3.4:5'   # 注释`
+#    剥掉注释后会剩尾随空格，`s/'$//` 匹配不上，值里会残留一个引号。
 field() {
 	printf '%s\n' "$BLOCK" \
 		| sed -n "s/^[[:space:]]*$1[[:space:]]*:[[:space:]]*//p" \
 		| head -n 1 \
-		| sed "s/[[:space:]]*#.*$//; s/^'//; s/'$//; s/^\"//; s/\"$//; s/[[:space:]]*$//"
+		| sed "s/[[:space:]]*$//; s/^'//; s/'$//; s/^\"//; s/\"$//; s/[[:space:]]*$//"
 }
 
 # 普通抓取（只判可达）
@@ -64,6 +68,14 @@ else
 fi
 
 BLOCK=$(native_block)
+
+# 文件里到底有没有**生效**的 native_api 块：整段被注释时这里为空，
+# 与「enabled 明确写了 false」是两种情况，页面据此给出不同提示。
+if [ -n "$BLOCK" ]; then
+	block_present=true
+else
+	block_present=false
+fi
 
 enabled=$(field enabled)
 listen=$(field listen)
@@ -97,5 +109,5 @@ if [ "$enabled" = "true" ] && [ -n "$ui" ]; then
 	fi
 fi
 
-printf '{"configured":{"present":%s,"enabled":%s,"listen":"%s","ui":"%s"},"probe":{"reachable":%s,"framing":"%s"}}\n' \
-	"$present" "$enabled" "$listen" "$ui" "$reachable" "$framing"
+printf '{"configured":{"present":%s,"enabled":%s,"block_present":%s,"listen":"%s","ui":"%s"},"probe":{"reachable":%s,"framing":"%s"}}\n' \
+	"$present" "$enabled" "$block_present" "$listen" "$ui" "$reachable" "$framing"
