@@ -108,15 +108,24 @@ return view.extend({
 			if (blocked || !url)
 				return dom.content(host, blocked || hint(_('Unable to determine the panel address from the native API configuration.')));
 
-			dom.content(host, E('iframe', {
+			/* ⚠️ 必须自带堆叠上下文与不透明底：
+			   主题（如 aurora）有一个 position:fixed 的 .page-bg 图层 + 一层 --bg 半透明"水洗"，
+			   它按绘制顺序会压在**未定位的流内内容**之上 —— 主题对普通 DOM 是靠给 #maincontent 加
+			   relative 规避的，而 iframe 是替换元素、自成合成层，不一定吃到这套规避
+			   ⇒ 面板内容会被水洗层遮住（切换光暗时 --bg 变化，下层就透出来）。
+			   所以这里 own 一个 z-index:1 的定位容器，并给 iframe 一个不透明底。 */
+			dom.content(host, E('div', {
+				'style': 'position:relative;z-index:1'
+			}, E('iframe', {
 				'src': url,
 				'title': _('WebUI'),
 				'loading': 'eager',
 				'referrerpolicy': 'no-referrer',
 				/* 高度留出 LuCI 自身外壳（顶栏 + 页签条）的位置：
 				   否则整页会高于一屏、滚动后页签条被顶出视野，看起来像"面板把界面盖住了"。 */
-				'style': 'width:100%;height:calc(100vh - 230px);min-height:360px;border:0;display:block;border-radius:4px'
-			}));
+				'style': 'width:100%;height:calc(100vh - 230px);min-height:360px;border:0;display:block;border-radius:4px;'
+					+ 'background:var(--bg,#fff)'
+			})));
 		}
 
 		fs.exec_direct(PROBE).then(function(out) {
