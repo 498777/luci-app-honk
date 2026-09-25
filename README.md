@@ -47,16 +47,23 @@ uci set honk.config.enabled=1 && uci commit honk
 
 ## LuCI 界面
 
-安装后 **服务 → HONK** 下为六个页签（JS 客户端渲染，`htdocs/luci-static/resources/view/honk/*.js`）。顶部是运行状态卡片（每 3 秒刷新），下面一张卡片里依次是 uci 启用开关、服务动作按钮、代码编辑器。每页都带 CodeMirror（`.dae` 语法高亮、代码折叠、括号匹配与自动补全、当前行高亮、格式化代码），底部为 Save / Save & Apply / Reset 三个按钮：
+安装后 **服务 → HONK** 下为七个页签（JS 客户端渲染，`htdocs/luci-static/resources/view/honk/*.js`）。编辑器页顶部是运行状态卡片（每 3 秒刷新），下面一张卡片里依次是 uci 启用开关、服务动作按钮、代码编辑器。编辑器页都带 CodeMirror（`.dae` 语法高亮、代码折叠、括号匹配与自动补全、当前行高亮、格式化代码），底部为 Save / Save & Apply / Reset 三个按钮：
 
-| 页签 | 编辑对象 |
+| 页签 | 内容 |
 | --- | --- |
-| Global Settings | uci 启用开关 + `/etc/honk/config.dae` |
-| DNS Settings | `/etc/honk/config.d/dns.dae` |
-| Node Settings | `/etc/honk/config.d/node.dae`（节点 / 订阅 / 分组） |
-| Routing Settings | `/etc/honk/config.d/route.dae` |
+| Global Settings | uci 启用开关 + `/etc/honk/config.dae`（编辑器） |
+| DNS Settings | `/etc/honk/config.d/dns.dae`（编辑器） |
+| Node Settings | `/etc/honk/config.d/node.dae`（编辑器，节点 / 订阅 / 分组） |
+| Routing Settings | `/etc/honk/config.d/route.dae`（编辑器） |
 | Logs | `/var/log/honk/honk.log`（实时日志，末尾 1000 行） |
-| API & Web UI | `/etc/honk/config.d/api.dae`（`native_api` 与内嵌 doona UI） |
+| API Settings | `/etc/honk/config.d/api.dae`（编辑器，`native_api` / `clash_api`） |
+| WebUI | native_api 面板入口：面板地址 + 打开按钮 + 配置与运行态 |
+
+**WebUI 页为什么不做页内嵌入**：honk 对面板的静态响应强制 `X-Frame-Options: DENY`
+（`native_api/ui.rs` 的 `serve()` 统一加头，`embedded` 与本地目录两种模式都一样），浏览器会拒绝 iframe。
+因此该页只给出地址并在**新窗口**打开。它的数据来源分两处：服务总开关走 LuCI 的 uci 接口，
+`native_api` 的配置与运行态走 `/usr/libexec/honk-native-api-probe`
+（探测必须放在路由器侧 —— honk 的 `GET /api` 默认不发 CORS 头，浏览器跨源请求会被拦）。
 
 **保存与生效是刻意的两步**，不是一次操作：
 

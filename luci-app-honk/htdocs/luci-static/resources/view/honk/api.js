@@ -2,7 +2,9 @@
 'require honk.editor as heditor';
 
 /*
- * API & Web UI —— 编辑 /etc/honk/config.d/api.dae（native_api / clash_api 块）
+ * API Settings —— 编辑 /etc/honk/config.d/api.dae（native_api / clash_api 块）
+ *
+ * Web UI 的入口不在这里，见 view/honk/webui.js（单独一个页签，只做跳转与状态展示）。
  *
  * 两点值得留意：
  *
@@ -18,8 +20,8 @@
 
 return heditor.editorPage({
 	key: 'api',
-	title: _('API & Web UI'),
-	description: _('Configure the native API listener and the embedded Web UI. Saving requires a service restart to take effect.'),
+	title: _('API Settings'),
+	description: _('Configure the native API listener. Saving requires a service restart to take effect.'),
 	editorTitle: _('API Configuration'),
 	reloadAction: 'restart',
 	reloadLabel: _('Restart Service'),

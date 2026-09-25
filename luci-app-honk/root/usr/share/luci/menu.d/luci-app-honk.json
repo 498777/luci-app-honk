@@ -56,11 +56,19 @@
 		}
 	},
 	"admin/services/honk/api": {
-		"title": "API & Web UI",
+		"title": "API Settings",
 		"order": 60,
 		"action": {
 			"type": "view",
 			"path": "honk/api"
+		}
+	},
+	"admin/services/honk/webui": {
+		"title": "WebUI",
+		"order": 70,
+		"action": {
+			"type": "view",
+			"path": "honk/webui"
 		}
 	}
 }

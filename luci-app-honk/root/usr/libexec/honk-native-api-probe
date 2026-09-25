@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# 供 LuCI 的「WebUI」页读取 native_api 的配置与运行态，输出 JSON。
+# 由 htdocs/luci-static/resources/view/honk/webui.js 通过 fs.exec_direct 调用。
+#
+# 为什么探测必须放在路由器侧：honk 的 GET /api（discovery）默认不发 CORS 头
+# （experimental.native_api.allow_origins 为空），浏览器从 LuCI 的源跨源请求必然被拦。
+# 放在这里而不是让界面自己发请求，同时也把 ACL 收敛到这一个脚本上。
+#
+# 只用 shell + awk/sed + 一个 HTTP 客户端（busybox wget 或 uclient-fetch），
+# 不依赖 PATH 上的其它命令。
+# discovery 的原文直接透传给 JS，由 JS 的 JSON.parse 处理 —— 不在 shell 里解析 JSON。
+
+CFG=/etc/honk/config.d/api.dae
+
+# 取出 native_api 块（按花括号配平），避免误取到 clash_api 里的同名字段（如 cache_file.enabled）
+native_block() {
+	[ -r "$CFG" ] || return 0
+
+	awk '
+		!inside && $0 ~ /(^|[^A-Za-z_])native_api[[:space:]]*\{/ { inside = 1 }
+		inside {
+			open  = gsub(/\{/, "{")
+			close = gsub(/\}/, "}")
+			depth += open - close
+			print
+			if (depth <= 0) exit
+		}
+	' "$CFG"
+}
+
+# 从 native_api 块里取 <key>: <value>，去掉引号、行尾注释与空白
+field() {
+	printf '%s\n' "$BLOCK" \
+		| sed -n "s/^[[:space:]]*$1[[:space:]]*:[[:space:]]*//p" \
+		| head -n 1 \
+		| sed "s/[[:space:]]*#.*$//; s/^'//; s/'$//; s/^\"//; s/\"$//; s/[[:space:]]*$//"
+}
+
+fetch() {
+	if command -v wget >/dev/null 2>&1; then
+		wget -q -O - -T 3 "$1" 2>/dev/null
+	elif command -v uclient-fetch >/dev/null 2>&1; then
+		uclient-fetch -q -O - -T 3 "$1" 2>/dev/null
+	fi
+}
+
+if [ -r "$CFG" ]; then
+	present=true
+else
+	present=false
+fi
+
+BLOCK=$(native_block)
+
+enabled=$(field enabled)
+listen=$(field listen)
+ui=$(field ui)
+
+[ -n "$enabled" ] || enabled=false
+[ -n "$listen" ] || listen="127.0.0.1:9527"
+
+reachable=false
+discovery=null
+
+if [ "$enabled" = "true" ]; then
+	# 一律探 loopback：listen 即便是通配或具体 LAN 地址，本机也必然可达
+	body=$(fetch "http://127.0.0.1:${listen##*:}/api")
+
+	if [ -n "$body" ]; then
+		reachable=true
+		discovery="$body"
+	fi
+fi
+
+printf '{"configured":{"present":%s,"enabled":%s,"listen":"%s","ui":"%s"},"probe":{"reachable":%s,"discovery":%s}}\n' \
+	"$present" "$enabled" "$listen" "$ui" "$reachable" "$discovery"
